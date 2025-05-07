@@ -17,7 +17,6 @@ from pytorch_cnn_lstm_attention import (
     visualize_attention_weights, save_model, load_model
 )
 from pytorch_data_processing import BearingDataProcessor
-from nested_data_loader import load_and_process_data_from_nested_dirs
 
 # 导入新添加的模型
 from mlp_model import MLPClassifier
@@ -47,7 +46,7 @@ def parse_arguments():
     
     # 模型相关参数
     parser.add_argument('--model_type', type=str, 
-                        choices=['cnn_lstm_attention', 'cnn', 'cnn_simple', 'mlp'], 
+                        choices=['cnn_lstm_attention', 'cnn_attention', 'cnn_model', 'mlp'], 
                         default='cnn_lstm_attention', 
                         help='模型类型：CNN-LSTM-Attention/CNN(带注意力)/CNN简单版/MLP')
     parser.add_argument('--filters', type=int, default=64, 
@@ -147,7 +146,7 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 lstm_hidden=args.lstm_hidden,
                 dropout_rate=args.dropout
             )
-        elif model_type == 'cnn':
+        elif model_type == 'cnn_attention':
             model = CNNClassifier(
                 input_channels=input_channels,
                 seq_length=seq_length,
@@ -156,7 +155,7 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 kernel_sizes=[args.kernel_size, args.kernel_size+2, args.kernel_size+4],
                 dropout_rate=args.dropout
             )
-        elif model_type == 'cnn_simple':
+        elif model_type == 'cnn_model':
             model = SimpleCNNClassifier(
                 input_channels=input_channels,
                 seq_length=seq_length,
