@@ -1,0 +1,14 @@
+SVM模型训练完成，用时 280.54 秒
+训练集准确率 0.9920
+验证集准确率 0.4468
+SVM模型已保存至 bearing_model.joblib
+训练完成，用时 374.35 秒
+在测试集上评估模型...
+测试准确率 0.4408
+计算t-SNE降维...
+CAppanacondalibsite-packagessklearnmanifold_t_sne.py780 FutureWarning The default initialization in TSNE will change from 'random' to 'pca' in 1.2.
+  warnings.warn(
+CAppanacondalibsite-packagessklearnmanifold_t_sne.py790 FutureWarning The default learning rate in TSNE will change from 200.0 to 'auto' in 1.2.
+  warnings.warn(
+模型已保存至 bearing_model.joblib
+最终测试准确率 0.4408

@@ -1,0 +1,12 @@
+SVM模型训练完成，用时: 5.58 秒
+训练集准确率: 0.9902
+验证集准确率: 0.9860
+SVM模型已保存至 bearing_model.joblib
+训练完成，用时: 8.69 秒
+在测试集上评估模型...
+测试准确率: 0.9880
+计算t-SNE降维...
+C:\App\anaconda\lib\site-packages\sklearn\manifold\_t_sne.py:982: FutureWarning: The PCA initialization in TSNE will change to have the standard deviation of PC1 equal to 1e-4 in 1.2. This will ensure better convergence.
+  warnings.warn(
+模型已保存至 bearing_model.joblib
+最终测试准确率: 0.9880
