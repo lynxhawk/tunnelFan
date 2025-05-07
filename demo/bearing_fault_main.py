@@ -11,7 +11,6 @@ import json
 import time
 
 # 导入自定义模块
-# 假设前面的代码已保存为Python模块
 from pytorch_cnn_lstm_attention import (
     CNNLSTM_Attention, train_model, evaluate_model, 
     visualize_learning_curves, visualize_confusion_matrix,
@@ -19,6 +18,11 @@ from pytorch_cnn_lstm_attention import (
 )
 from pytorch_data_processing import BearingDataProcessor
 from nested_data_loader import load_and_process_data_from_nested_dirs
+
+# 导入新添加的模型
+from mlp_model import MLPClassifier
+from cnn_attention import CNNClassifier  # 带注意力机制的CNN
+from cnn_model import SimpleCNNClassifier  # 不带注意力机制的简单CNN
 
 def parse_arguments():
     """
@@ -42,6 +46,10 @@ def parse_arguments():
                         help='是否使用数据增强')
     
     # 模型相关参数
+    parser.add_argument('--model_type', type=str, 
+                        choices=['cnn_lstm_attention', 'cnn', 'cnn_simple', 'mlp'], 
+                        default='cnn_lstm_attention', 
+                        help='模型类型：CNN-LSTM-Attention/CNN(带注意力)/CNN简单版/MLP')
     parser.add_argument('--filters', type=int, default=64, 
                         help='CNN滤波器数量')
     parser.add_argument('--kernel_size', type=int, default=3, 
@@ -97,6 +105,78 @@ def main():
         test_workflow(processor, args, device)
     elif args.mode == 'predict':
         predict_workflow(processor, args, device)
+
+def create_model(model_type, input_shape, num_classes, args, device):
+    """
+    根据指定的类型创建模型
+    
+    参数:
+    - model_type: 模型类型
+    - input_shape: 输入数据形状（特征数据或原始信号）
+    - num_classes: 类别数量
+    - args: 命令行参数
+    - device: 计算设备
+    
+    返回:
+    - 创建的模型
+    """
+    if args.use_features:
+        # 对于特征数据，只使用MLP模型
+        if model_type != 'mlp':
+            print(f"警告: 对于特征数据，'{model_type}'模型不适用，自动切换为'mlp'。")
+        
+        input_dim = input_shape[1]  # 特征维度
+        model = MLPClassifier(
+            input_dim=input_dim,
+            num_classes=num_classes,
+            hidden_layers=[256, 128, 64],
+            dropout_rate=args.dropout
+        )
+    else:
+        # 对于原始信号数据
+        input_channels = input_shape[2]  # 通常是3（X, Y, Z轴）
+        seq_length = input_shape[1]      # 窗口大小
+        
+        if model_type == 'cnn_lstm_attention':
+            model = CNNLSTM_Attention(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                filters=args.filters,
+                kernel_size=args.kernel_size,
+                lstm_hidden=args.lstm_hidden,
+                dropout_rate=args.dropout
+            )
+        elif model_type == 'cnn':
+            model = CNNClassifier(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                base_filters=args.filters,
+                kernel_sizes=[args.kernel_size, args.kernel_size+2, args.kernel_size+4],
+                dropout_rate=args.dropout
+            )
+        elif model_type == 'cnn_simple':
+            model = SimpleCNNClassifier(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                base_filters=args.filters,
+                kernel_sizes=[args.kernel_size, args.kernel_size+2, args.kernel_size+4],
+                dropout_rate=args.dropout
+            )
+        elif model_type == 'mlp':
+            input_dim = seq_length * input_channels  # 展平原始信号
+            model = MLPClassifier(
+                input_dim=input_dim,
+                num_classes=num_classes,
+                hidden_layers=[512, 256, 128],  # 对于原始信号，使用更大的隐藏层
+                dropout_rate=args.dropout
+            )
+        else:
+            raise ValueError(f"不支持的模型类型: {model_type}")
+    
+    return model.to(device)
 
 def train_workflow(processor, args, device):
     """
@@ -163,30 +243,8 @@ def train_workflow(processor, args, device):
         X_train_norm, X_val_norm, X_test_norm, y_train, y_val, y_test, batch_size=args.batch_size
     )
     
-    # 确定输入维度
-    if args.use_features:
-        # 如果使用手工特征，输入是特征向量
-        input_shape = X_train_norm.shape[1]
-        model = FeatureBasedModel(
-            input_dim=input_shape,
-            num_classes=len(unique_classes),  # 使用实际存在的类别数量
-            hidden_dims=[128, 64],
-            dropout=args.dropout
-        )
-    else:
-        # 如果使用原始信号，输入是三轴时序数据
-        input_channels = X_train_norm.shape[2]  # 通常是3（X, Y, Z轴）
-        seq_length = X_train_norm.shape[1]     # 窗口大小
-        
-        model = CNNLSTM_Attention(
-            input_channels=input_channels,
-            seq_length=seq_length,
-            num_classes=len(unique_classes),  # 使用实际存在的类别数量
-            filters=args.filters,
-            kernel_size=args.kernel_size,
-            lstm_hidden=args.lstm_hidden,
-            dropout_rate=args.dropout
-        )
+    # 创建指定类型的模型
+    model = create_model(args.model_type, X_train_norm.shape, len(unique_classes), args, device)
     
     # 打印模型结构
     print(model)
@@ -225,8 +283,8 @@ def train_workflow(processor, args, device):
     # 可视化混淆矩阵
     visualize_confusion_matrix(cm, class_names)
     
-    # 可视化注意力权重
-    if not args.use_features:  # 只在使用原始信号时才可视化注意力权重
+    # 可视化注意力权重 (对于有意义的注意力机制的模型)
+    if not args.use_features and args.model_type in ['cnn_lstm_attention', 'cnn']:
         visualize_attention_weights(model, test_loader, device)
     
     # 可视化潜在空间（使用t-SNE）
@@ -237,12 +295,13 @@ def train_workflow(processor, args, device):
     
     # 保存配置信息
     config = {
+        'model_type': args.model_type,
         'window_size': args.window_size,
         'use_features': args.use_features,
         'input_channels': X_train_norm.shape[2] if not args.use_features else None,
         'seq_length': X_train_norm.shape[1] if not args.use_features else None,
         'feature_dim': X_train_norm.shape[1] if args.use_features else None,
-        'num_classes': len(unique_classes)  # 使用实际存在的类别数量
+        'num_classes': len(unique_classes)
     }
     
     with open('model_config.json', 'w') as f:
@@ -278,27 +337,8 @@ def test_workflow(processor, args, device):
         print("错误：找不到标签映射文件。请先训练模型或提供有效的标签映射。")
         return
     
-    # 创建相同结构的模型
-    if config['use_features']:
-        model = FeatureBasedModel(
-            input_dim=config['feature_dim'],
-            num_classes=config['num_classes'],
-            hidden_dims=[128, 64],
-            dropout=args.dropout
-        )
-    else:
-        model = CNNLSTM_Attention(
-            input_channels=config['input_channels'],
-            seq_length=config['seq_length'],
-            num_classes=config['num_classes'],
-            filters=args.filters,
-            kernel_size=args.kernel_size,
-            lstm_hidden=args.lstm_hidden,
-            dropout_rate=args.dropout
-        )
-    
-    # 加载模型权重
-    model = load_model(model, args.model_path, device)
+    # 获取模型类型
+    model_type = config.get('model_type', 'cnn_lstm_attention')
     
     # 加载数据
     print(f"从 {args.data_dir} 加载数据...")
@@ -344,6 +384,18 @@ def test_workflow(processor, args, device):
     test_dataset = processor.BearingDataset(X_test_norm, y_test)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size)
     
+    # 创建模型
+    if config['use_features']:
+        input_shape = (X_test_norm.shape[0], config['feature_dim'])
+    else:
+        input_shape = (X_test_norm.shape[0], config['seq_length'], config['input_channels'])
+    
+    # 创建模型
+    model = create_model(model_type, input_shape, config['num_classes'], args, device)
+    
+    # 加载模型权重
+    model = load_model(model, args.model_path, device)
+    
     # 定义损失函数
     criterion = nn.CrossEntropyLoss()
     
@@ -356,8 +408,8 @@ def test_workflow(processor, args, device):
     # 可视化混淆矩阵
     visualize_confusion_matrix(cm, class_names)
     
-    # 可视化注意力权重
-    if not config['use_features']:
+    # 可视化注意力权重（对于有意义的注意力机制的模型）
+    if not config['use_features'] and model_type in ['cnn_lstm_attention', 'cnn']:
         visualize_attention_weights(model, test_loader, device)
     
     # 可视化潜在空间
@@ -398,39 +450,12 @@ def predict_workflow(processor, args, device):
         print("错误：找不到标签映射文件。请先训练模型或提供有效的标签映射。")
         return
     
-    # 创建相同结构的模型
-    if config['use_features']:
-        model = FeatureBasedModel(
-            input_dim=config['feature_dim'],
-            num_classes=config['num_classes'],
-            hidden_dims=[128, 64],
-            dropout=args.dropout
-        )
-    else:
-        model = CNNLSTM_Attention(
-            input_channels=config['input_channels'],
-            seq_length=config['seq_length'],
-            num_classes=config['num_classes'],
-            filters=args.filters,
-            kernel_size=args.kernel_size,
-            lstm_hidden=args.lstm_hidden,
-            dropout_rate=args.dropout
-        )
-    
-    # 加载模型权重
-    model = load_model(model, args.model_path, device)
-    
-    # 加载归一化参数
-    try:
-        mean = np.load('normalization_mean.npy')
-        std = np.load('normalization_std.npy')
-        processor.scaler.mean_ = mean
-        processor.scaler.scale_ = std
-    except FileNotFoundError:
-        print("警告：找不到归一化参数文件。将使用测试数据进行拟合，可能导致性能下降。")
+    # 获取模型类型
+    model_type = config.get('model_type', 'cnn_lstm_attention')
     
     # 加载并处理预测文件
     try:
+        # 加载数据
         data = processor.load_and_process_data(args.predict_file)
         segments = processor.segment_data(data)
         
@@ -452,12 +477,29 @@ def predict_workflow(processor, args, device):
                 features.append(combined_features)
             
             X_pred = np.array(features)
+            input_shape = (X_pred.shape[0], config['feature_dim'])
         else:
             # 使用原始信号
             X_pred = segments
+            input_shape = (X_pred.shape[0], config['seq_length'], config['input_channels'])
+        
+        # 加载归一化参数
+        try:
+            mean = np.load('normalization_mean.npy')
+            std = np.load('normalization_std.npy')
+            processor.scaler.mean_ = mean
+            processor.scaler.scale_ = std
+        except FileNotFoundError:
+            print("警告：找不到归一化参数文件。将使用预测数据进行拟合，可能导致性能下降。")
         
         # 归一化数据
         X_pred_norm, = processor.normalize_data(X_pred)
+        
+        # 创建模型
+        model = create_model(model_type, input_shape, config['num_classes'], args, device)
+        
+        # 加载模型权重
+        model = load_model(model, args.model_path, device)
         
         # 转换为PyTorch张量
         X_pred_tensor = torch.FloatTensor(X_pred_norm).to(device)
@@ -494,17 +536,17 @@ def predict_workflow(processor, args, device):
         plt.figure(figsize=(12, 6))
         plt.bar(range(len(class_counts)), class_counts)
         plt.xticks(range(len(class_counts)), 
-                  [reverse_label_map.get(i, f"类别 {i}") for i in range(len(class_counts))], 
-                  rotation=90)
-        plt.title('各类别预测数量')
-        plt.xlabel('类别')
-        plt.ylabel('数量')
+                 [reverse_label_map.get(i, f"类别 {i}") for i in range(len(class_counts))], 
+                 rotation=90)
+        plt.title('number of samples per class')
+        plt.xlabel('class')
+        plt.ylabel('number')
         plt.tight_layout()
         plt.savefig('prediction_distribution.png', dpi=300)
         plt.show()
         
-        # 可视化最有信心的样本的振动信号和注意力权重
-        if not config['use_features']:
+        # 可视化最有信心的样本的振动信号和注意力权重（仅对于带注意力机制的模型）
+        if not config['use_features'] and model_type in ['cnn_lstm_attention', 'cnn']:
             # 找出预测为最常见类别的样本
             indices = np.where(predictions == most_common_class)[0]
             
@@ -525,22 +567,22 @@ def predict_workflow(processor, args, device):
                     plt.subplot(len(sample_indices), 1, i+1)
                     
                     # 绘制X轴信号
-                    plt.plot(sample[:, 0], 'b-', label='X轴信号', alpha=0.7)
+                    plt.plot(sample[:, 0], 'b-', label='X-aixs signal', alpha=0.7)
                     
                     # 绘制Y轴信号
-                    plt.plot(sample[:, 1], 'g-', label='Y轴信号', alpha=0.7)
+                    plt.plot(sample[:, 1], 'g-', label='Y-aixs signal', alpha=0.7)
                     
                     # 绘制Z轴信号
-                    plt.plot(sample[:, 2], 'r-', label='Z轴信号', alpha=0.7)
+                    plt.plot(sample[:, 2], 'r-', label='Z-aixs signal', alpha=0.7)
                     
                     # 绘制注意力权重（根据原始信号的峰值进行缩放）
                     # 上采样注意力权重以匹配原始信号长度
                     upsampled_attention = np.repeat(attention, 4)[:len(sample)]
-                    plt.plot(upsampled_attention * signal_peak, 'k-', label='注意力权重', linewidth=2)
+                    plt.plot(upsampled_attention * signal_peak, 'k-', label='attention weight', linewidth=2)
                     
-                    plt.title(f'样本 {i+1} - 预测为 {predicted_class_name}')
-                    plt.xlabel('时间步')
-                    plt.ylabel('幅度')
+                    plt.title(f'sample {i+1} - predict {predicted_class_name}')
+                    plt.xlabel('step')
+                    plt.ylabel('amplitude')
                     plt.legend()
                 
                 plt.tight_layout()
@@ -581,14 +623,13 @@ def visualize_latent_space(model, data_loader, device, num_classes, labels=None)
                 
             data, target = data.to(device), target.to(device)
             
-            # 对于特征模型，获取倒数第二层的输出
-            if isinstance(model, FeatureBasedModel):
-                # 假设模型有一个获取倒数第二层输出的方法
+            # 获取潜在表示
+            if hasattr(model, 'get_latent'):
+                # 如果模型有get_latent方法，使用它
                 latent = model.get_latent(data)
             else:
-                # 对于CNN-LSTM-Attention模型，获取注意力输出
+                # 否则使用注意力权重
                 _, attention_weights = model(data)
-                # 这里我们用注意力权重作为潜在表示
                 latent = attention_weights
             
             latent_representations.append(latent.cpu().numpy())
@@ -614,9 +655,9 @@ def visualize_latent_space(model, data_loader, device, num_classes, labels=None)
         indices = all_labels == i
         if np.any(indices):  # 只绘制有样本的类别
             plt.scatter(tsne_results[indices, 0], tsne_results[indices, 1], 
-                      c=[cmap(i)], label=f'类别 {i}', alpha=0.7)
+                      c=[cmap(i)], label=f'class {i}', alpha=0.7)
     
-    plt.title('t-SNE可视化潜在空间')
+    plt.title('t-SNE Visualization of Latent Space')
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
     plt.tight_layout()
     plt.savefig('tsne_visualization.png', dpi=300)
@@ -640,8 +681,6 @@ class FeatureBasedModel(nn.Module):
             prev_dim = dim
         
         # 输出层
-
-
         layers.append(nn.Linear(prev_dim, num_classes))
         
         self.model = nn.Sequential(*layers)
@@ -654,7 +693,7 @@ class FeatureBasedModel(nn.Module):
         # 为了与CNN-LSTM-Attention模型兼容，我们返回一个假的注意力权重
         # 实际上这个模型没有注意力机制
         batch_size = x.size(0)
-        dummy_attention = torch.ones(batch_size, 10) / 10  # 10是任意选择的
+        dummy_attention = torch.ones(batch_size, 10, device=x.device) / 10  # 10是任意选择的
         return outputs, dummy_attention
     
     def get_latent(self, x):
