@@ -1,0 +1,667 @@
+import os
+import sys
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import matplotlib.pyplot as plt
+from sklearn.manifold import TSNE
+import argparse
+import json
+import time
+
+# 导入自定义模块
+# 假设前面的代码已保存为Python模块
+from pytorch_cnn_lstm_attention import (
+    CNNLSTM_Attention, train_model, evaluate_model, 
+    visualize_learning_curves, visualize_confusion_matrix,
+    visualize_attention_weights, save_model, load_model
+)
+from pytorch_data_processing import BearingDataProcessor
+from nested_data_loader import load_and_process_data_from_nested_dirs
+
+def parse_arguments():
+    """
+    解析命令行参数
+    
+    返回:
+    - 解析后的参数
+    """
+    parser = argparse.ArgumentParser(description='轴承故障诊断系统')
+    
+    # 数据相关参数
+    parser.add_argument('--data_dir', type=str, default='bearing_data', 
+                        help='数据目录路径')
+    parser.add_argument('--window_size', type=int, default=1000, 
+                        help='信号窗口大小')
+    parser.add_argument('--overlap', type=float, default=0.5, 
+                        help='窗口重叠比例')
+    parser.add_argument('--use_features', action='store_true', 
+                        help='是否使用手工提取的特征（默认使用原始信号）')
+    parser.add_argument('--augment', action='store_true', 
+                        help='是否使用数据增强')
+    
+    # 模型相关参数
+    parser.add_argument('--filters', type=int, default=64, 
+                        help='CNN滤波器数量')
+    parser.add_argument('--kernel_size', type=int, default=3, 
+                        help='CNN卷积核大小')
+    parser.add_argument('--lstm_hidden', type=int, default=100, 
+                        help='LSTM隐藏单元数量')
+    parser.add_argument('--dropout', type=float, default=0.3, 
+                        help='Dropout比率')
+    
+    # 训练相关参数
+    parser.add_argument('--batch_size', type=int, default=32, 
+                        help='批次大小')
+    parser.add_argument('--epochs', type=int, default=50, 
+                        help='训练轮数')
+    parser.add_argument('--lr', type=float, default=0.001, 
+                        help='学习率')
+    parser.add_argument('--patience', type=int, default=10, 
+                        help='早停耐心值')
+    
+    # 系统功能
+    parser.add_argument('--mode', type=str, choices=['train', 'test', 'predict'], 
+                        default='train', help='系统模式：训练/测试/预测')
+    parser.add_argument('--model_path', type=str, default='bearing_model.pth', 
+                        help='模型保存/加载路径')
+    parser.add_argument('--predict_file', type=str, 
+                        help='要预测的文件路径（仅预测模式）')
+    
+    return parser.parse_args()
+
+def main():
+    """
+    主函数
+    """
+    # 解析命令行参数
+    args = parse_arguments()
+    
+    # 检查CUDA可用性
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    print(f"使用设备: {device}")
+    
+    # 创建数据处理器
+    processor = BearingDataProcessor(
+        data_dir=args.data_dir,
+        window_size=args.window_size,
+        overlap=args.overlap,
+        sampling_rate=10000  # 假设采样率为10kHz
+    )
+    
+    # 根据模式执行不同功能
+    if args.mode == 'train':
+        train_workflow(processor, args, device)
+    elif args.mode == 'test':
+        test_workflow(processor, args, device)
+    elif args.mode == 'predict':
+        predict_workflow(processor, args, device)
+
+def train_workflow(processor, args, device):
+    """
+    训练工作流
+    
+    参数:
+    - processor: 数据处理器
+    - args: 命令行参数
+    - device: 计算设备
+    """
+    print("开始训练工作流...")
+    
+    # 准备数据集
+    print(f"从 {args.data_dir} 加载数据...")
+    X, y, label_map = processor.prepare_dataset(
+        augment=args.augment, 
+        use_features=args.use_features
+    )
+    
+    # 保存标签映射
+    with open('label_map.json', 'w') as f:
+        json.dump({k: int(v) for k, v in label_map.items()}, f)
+    
+    print(f"数据集大小: {X.shape}")
+    print(f"标签数量: {len(label_map)}")
+    
+    # 找出实际存在于数据中的类别
+    unique_classes = np.unique(y)
+    print(f"数据中存在的类别: {unique_classes}")
+    print(f"存在的类别数量: {len(unique_classes)}")
+    
+    # 获取类别名称列表，确保只包含存在于数据中的类别
+    class_names = []
+    for i in unique_classes:
+        # 找到标签映射中与此索引对应的名称
+        for name, idx in label_map.items():
+            if idx == i:
+                class_names.append(name)
+                break
+        else:
+            class_names.append(f"Class {i}")
+    
+    print(f"类别名称: {class_names}")
+    
+    # 可视化类别分布
+    processor.visualize_class_distribution(y, label_map)
+    
+    # 分割数据
+    X_train, X_val, X_test, y_train, y_val, y_test = processor.split_data(X, y)
+    
+    print(f"训练集大小: {X_train.shape}")
+    print(f"验证集大小: {X_val.shape}")
+    print(f"测试集大小: {X_test.shape}")
+    
+    # 归一化数据
+    X_train_norm, X_val_norm, X_test_norm = processor.normalize_data(X_train, X_val, X_test)
+    
+    # 保存归一化参数
+    np.save('normalization_mean.npy', processor.scaler.mean_)
+    np.save('normalization_std.npy', processor.scaler.scale_)
+    
+    # 创建数据加载器
+    train_loader, val_loader, test_loader = processor.create_dataloaders(
+        X_train_norm, X_val_norm, X_test_norm, y_train, y_val, y_test, batch_size=args.batch_size
+    )
+    
+    # 确定输入维度
+    if args.use_features:
+        # 如果使用手工特征，输入是特征向量
+        input_shape = X_train_norm.shape[1]
+        model = FeatureBasedModel(
+            input_dim=input_shape,
+            num_classes=len(unique_classes),  # 使用实际存在的类别数量
+            hidden_dims=[128, 64],
+            dropout=args.dropout
+        )
+    else:
+        # 如果使用原始信号，输入是三轴时序数据
+        input_channels = X_train_norm.shape[2]  # 通常是3（X, Y, Z轴）
+        seq_length = X_train_norm.shape[1]     # 窗口大小
+        
+        model = CNNLSTM_Attention(
+            input_channels=input_channels,
+            seq_length=seq_length,
+            num_classes=len(unique_classes),  # 使用实际存在的类别数量
+            filters=args.filters,
+            kernel_size=args.kernel_size,
+            lstm_hidden=args.lstm_hidden,
+            dropout_rate=args.dropout
+        )
+    
+    # 打印模型结构
+    print(model)
+    
+    # 定义损失函数和优化器
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    
+    # 学习率调度器
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='min', factor=0.5, patience=5, min_lr=1e-6
+    )
+    
+    # 记录训练开始时间
+    start_time = time.time()
+    
+    # 训练模型
+    model, history = train_model(
+        model, train_loader, val_loader, criterion, optimizer, device,
+        num_epochs=args.epochs, patience=args.patience, scheduler=scheduler
+    )
+    
+    # 记录训练结束时间
+    training_time = time.time() - start_time
+    print(f"训练完成，用时: {training_time:.2f} 秒")
+    
+    # 可视化学习曲线
+    visualize_learning_curves(history)
+    
+    # 评估模型
+    print("在测试集上评估模型...")
+    test_loss, test_acc, cm, all_predictions, all_labels = evaluate_model(
+        model, test_loader, criterion, device, class_names
+    )
+    
+    # 可视化混淆矩阵
+    visualize_confusion_matrix(cm, class_names)
+    
+    # 可视化注意力权重
+    if not args.use_features:  # 只在使用原始信号时才可视化注意力权重
+        visualize_attention_weights(model, test_loader, device)
+    
+    # 可视化潜在空间（使用t-SNE）
+    visualize_latent_space(model, test_loader, device, len(unique_classes), all_labels)
+    
+    # 保存模型
+    save_model(model, args.model_path)
+    
+    # 保存配置信息
+    config = {
+        'window_size': args.window_size,
+        'use_features': args.use_features,
+        'input_channels': X_train_norm.shape[2] if not args.use_features else None,
+        'seq_length': X_train_norm.shape[1] if not args.use_features else None,
+        'feature_dim': X_train_norm.shape[1] if args.use_features else None,
+        'num_classes': len(unique_classes)  # 使用实际存在的类别数量
+    }
+    
+    with open('model_config.json', 'w') as f:
+        json.dump(config, f)
+    
+    print(f"模型已保存至 {args.model_path}")
+    print(f"最终测试准确率: {test_acc:.4f}")
+
+def test_workflow(processor, args, device):
+    """
+    测试工作流
+    
+    参数:
+    - processor: 数据处理器
+    - args: 命令行参数
+    - device: 计算设备
+    """
+    print("开始测试工作流...")
+    
+    # 加载配置
+    try:
+        with open('model_config.json', 'r') as f:
+            config = json.load(f)
+    except FileNotFoundError:
+        print("错误：找不到模型配置文件。请先训练模型或提供有效的配置文件。")
+        return
+    
+    # 加载标签映射
+    try:
+        with open('label_map.json', 'r') as f:
+            label_map = json.load(f)
+    except FileNotFoundError:
+        print("错误：找不到标签映射文件。请先训练模型或提供有效的标签映射。")
+        return
+    
+    # 创建相同结构的模型
+    if config['use_features']:
+        model = FeatureBasedModel(
+            input_dim=config['feature_dim'],
+            num_classes=config['num_classes'],
+            hidden_dims=[128, 64],
+            dropout=args.dropout
+        )
+    else:
+        model = CNNLSTM_Attention(
+            input_channels=config['input_channels'],
+            seq_length=config['seq_length'],
+            num_classes=config['num_classes'],
+            filters=args.filters,
+            kernel_size=args.kernel_size,
+            lstm_hidden=args.lstm_hidden,
+            dropout_rate=args.dropout
+        )
+    
+    # 加载模型权重
+    model = load_model(model, args.model_path, device)
+    
+    # 加载数据
+    print(f"从 {args.data_dir} 加载数据...")
+    X, y, _ = processor.prepare_dataset(
+        augment=False,  # 测试不需要数据增强
+        use_features=config['use_features']
+    )
+    
+    # 找出实际存在于数据中的类别
+    unique_classes = np.unique(y)
+    print(f"数据中存在的类别: {unique_classes}")
+    print(f"存在的类别数量: {len(unique_classes)}")
+    
+    # 获取类别名称列表，确保只包含存在于数据中的类别
+    class_names = []
+    for i in unique_classes:
+        # 找到标签映射中与此索引对应的名称
+        for name, idx in label_map.items():
+            if int(idx) == i:
+                class_names.append(name)
+                break
+        else:
+            class_names.append(f"Class {i}")
+    
+    print(f"类别名称: {class_names}")
+    
+    # 分割数据（只取测试集）
+    _, _, X_test, _, _, y_test = processor.split_data(X, y)
+    
+    # 加载归一化参数
+    try:
+        mean = np.load('normalization_mean.npy')
+        std = np.load('normalization_std.npy')
+        processor.scaler.mean_ = mean
+        processor.scaler.scale_ = std
+    except FileNotFoundError:
+        print("警告：找不到归一化参数文件。将使用测试数据进行拟合，可能导致性能下降。")
+    
+    # 归一化数据
+    X_test_norm, = processor.normalize_data(X_test)
+    
+    # 创建测试数据加载器
+    test_dataset = processor.BearingDataset(X_test_norm, y_test)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size)
+    
+    # 定义损失函数
+    criterion = nn.CrossEntropyLoss()
+    
+    # 评估模型
+    print("评估模型性能...")
+    test_loss, test_acc, cm, all_predictions, all_labels = evaluate_model(
+        model, test_loader, criterion, device, class_names
+    )
+    
+    # 可视化混淆矩阵
+    visualize_confusion_matrix(cm, class_names)
+    
+    # 可视化注意力权重
+    if not config['use_features']:
+        visualize_attention_weights(model, test_loader, device)
+    
+    # 可视化潜在空间
+    visualize_latent_space(model, test_loader, device, config['num_classes'], all_labels)
+    
+    print(f"测试准确率: {test_acc:.4f}")
+
+def predict_workflow(processor, args, device):
+    """
+    预测工作流
+    
+    参数:
+    - processor: 数据处理器
+    - args: 命令行参数
+    - device: 计算设备
+    """
+    if args.predict_file is None:
+        print("错误：预测模式需要指定 --predict_file 参数。")
+        return
+    
+    print(f"开始预测工作流，预测文件: {args.predict_file}...")
+    
+    # 加载配置
+    try:
+        with open('model_config.json', 'r') as f:
+            config = json.load(f)
+    except FileNotFoundError:
+        print("错误：找不到模型配置文件。请先训练模型或提供有效的配置文件。")
+        return
+    
+    # 加载标签映射
+    try:
+        with open('label_map.json', 'r') as f:
+            label_map = json.load(f)
+            # 反转映射，用于获取类别名称
+            reverse_label_map = {int(v): k for k, v in label_map.items()}
+    except FileNotFoundError:
+        print("错误：找不到标签映射文件。请先训练模型或提供有效的标签映射。")
+        return
+    
+    # 创建相同结构的模型
+    if config['use_features']:
+        model = FeatureBasedModel(
+            input_dim=config['feature_dim'],
+            num_classes=config['num_classes'],
+            hidden_dims=[128, 64],
+            dropout=args.dropout
+        )
+    else:
+        model = CNNLSTM_Attention(
+            input_channels=config['input_channels'],
+            seq_length=config['seq_length'],
+            num_classes=config['num_classes'],
+            filters=args.filters,
+            kernel_size=args.kernel_size,
+            lstm_hidden=args.lstm_hidden,
+            dropout_rate=args.dropout
+        )
+    
+    # 加载模型权重
+    model = load_model(model, args.model_path, device)
+    
+    # 加载归一化参数
+    try:
+        mean = np.load('normalization_mean.npy')
+        std = np.load('normalization_std.npy')
+        processor.scaler.mean_ = mean
+        processor.scaler.scale_ = std
+    except FileNotFoundError:
+        print("警告：找不到归一化参数文件。将使用测试数据进行拟合，可能导致性能下降。")
+    
+    # 加载并处理预测文件
+    try:
+        data = processor.load_and_process_data(args.predict_file)
+        segments = processor.segment_data(data)
+        
+        # 提取特征（如果需要）
+        if config['use_features']:
+            features = []
+            for segment in segments:
+                # 提取时域特征
+                time_features = processor.extract_time_domain_features(segment)
+                
+                # 提取频域特征
+                freq_features = processor.extract_frequency_domain_features(segment)
+                
+                # 提取小波特征
+                wavelet_features = processor.extract_wavelet_features(segment)
+                
+                # 组合所有特征
+                combined_features = np.concatenate([time_features, freq_features, wavelet_features])
+                features.append(combined_features)
+            
+            X_pred = np.array(features)
+        else:
+            # 使用原始信号
+            X_pred = segments
+        
+        # 归一化数据
+        X_pred_norm, = processor.normalize_data(X_pred)
+        
+        # 转换为PyTorch张量
+        X_pred_tensor = torch.FloatTensor(X_pred_norm).to(device)
+        
+        # 预测
+        model.eval()
+        predictions = []
+        attention_weights_list = []
+        
+        with torch.no_grad():
+            for i in range(0, len(X_pred_tensor), args.batch_size):
+                batch = X_pred_tensor[i:i+args.batch_size]
+                outputs, attention_weights = model(batch)
+                _, predicted = torch.max(outputs, 1)
+                predictions.extend(predicted.cpu().numpy())
+                attention_weights_list.extend(attention_weights.cpu().numpy())
+        
+        # 统计预测结果
+        predictions = np.array(predictions)
+        class_counts = np.bincount(predictions, minlength=config['num_classes'])
+        most_common_class = np.argmax(class_counts)
+        
+        # 计算置信度
+        confidence = class_counts[most_common_class] / len(predictions)
+        
+        # 获取预测类别名称
+        predicted_class_name = reverse_label_map.get(int(most_common_class), f"未知类别 {most_common_class}")
+        
+        print(f"\n预测结果:")
+        print(f"预测类别: {predicted_class_name}")
+        print(f"置信度: {confidence:.2f}")
+        
+        # 可视化预测结果
+        plt.figure(figsize=(12, 6))
+        plt.bar(range(len(class_counts)), class_counts)
+        plt.xticks(range(len(class_counts)), 
+                  [reverse_label_map.get(i, f"类别 {i}") for i in range(len(class_counts))], 
+                  rotation=90)
+        plt.title('各类别预测数量')
+        plt.xlabel('类别')
+        plt.ylabel('数量')
+        plt.tight_layout()
+        plt.savefig('prediction_distribution.png', dpi=300)
+        plt.show()
+        
+        # 可视化最有信心的样本的振动信号和注意力权重
+        if not config['use_features']:
+            # 找出预测为最常见类别的样本
+            indices = np.where(predictions == most_common_class)[0]
+            
+            if len(indices) > 0:
+                # 选择最前面的三个样本
+                sample_indices = indices[:min(3, len(indices))]
+                
+                plt.figure(figsize=(15, 10))
+                
+                for i, idx in enumerate(sample_indices):
+                    sample = X_pred[idx]
+                    attention = attention_weights_list[idx]
+                    
+                    # 计算原始信号的峰值，用于绘图标准化
+                    signal_peak = np.max(np.abs(sample))
+                    
+                    # 绘制子图
+                    plt.subplot(len(sample_indices), 1, i+1)
+                    
+                    # 绘制X轴信号
+                    plt.plot(sample[:, 0], 'b-', label='X轴信号', alpha=0.7)
+                    
+                    # 绘制Y轴信号
+                    plt.plot(sample[:, 1], 'g-', label='Y轴信号', alpha=0.7)
+                    
+                    # 绘制Z轴信号
+                    plt.plot(sample[:, 2], 'r-', label='Z轴信号', alpha=0.7)
+                    
+                    # 绘制注意力权重（根据原始信号的峰值进行缩放）
+                    # 上采样注意力权重以匹配原始信号长度
+                    upsampled_attention = np.repeat(attention, 4)[:len(sample)]
+                    plt.plot(upsampled_attention * signal_peak, 'k-', label='注意力权重', linewidth=2)
+                    
+                    plt.title(f'样本 {i+1} - 预测为 {predicted_class_name}')
+                    plt.xlabel('时间步')
+                    plt.ylabel('幅度')
+                    plt.legend()
+                
+                plt.tight_layout()
+                plt.savefig('prediction_attention.png', dpi=300)
+                plt.show()
+        
+        return predicted_class_name, confidence
+        
+    except Exception as e:
+        print(f"预测过程中出错: {str(e)}")
+        return None, 0.0
+
+def visualize_latent_space(model, data_loader, device, num_classes, labels=None):
+    """
+    使用t-SNE可视化潜在空间
+    
+    参数:
+    - model: 训练好的模型
+    - data_loader: 数据加载器
+    - device: 计算设备
+    - num_classes: 类别数量
+    - labels: 如果提供，使用这些标签而不是从数据加载器提取
+    """
+    # 将模型设为评估模式
+    model.eval()
+    
+    # 收集所有样本的潜在表示
+    latent_representations = []
+    all_labels = []
+    
+    # 对于基于特征的模型，使用倒数第二层作为潜在表示
+    # 对于CNN-LSTM-Attention模型，使用注意力层的输出作为潜在表示
+    
+    with torch.no_grad():
+        for batch_idx, (data, target) in enumerate(data_loader):
+            if batch_idx >= 50:  # 限制样本数量，t-SNE计算成本高
+                break
+                
+            data, target = data.to(device), target.to(device)
+            
+            # 对于特征模型，获取倒数第二层的输出
+            if isinstance(model, FeatureBasedModel):
+                # 假设模型有一个获取倒数第二层输出的方法
+                latent = model.get_latent(data)
+            else:
+                # 对于CNN-LSTM-Attention模型，获取注意力输出
+                _, attention_weights = model(data)
+                # 这里我们用注意力权重作为潜在表示
+                latent = attention_weights
+            
+            latent_representations.append(latent.cpu().numpy())
+            all_labels.append(target.cpu().numpy())
+    
+    # 合并所有批次的数据
+    latent_representations = np.vstack(latent_representations)
+    if labels is not None:
+        all_labels = labels[:len(latent_representations)]
+    else:
+        all_labels = np.concatenate(all_labels)
+    
+    # 使用t-SNE降维
+    print("计算t-SNE降维...")
+    tsne = TSNE(n_components=2, random_state=42)
+    tsne_results = tsne.fit_transform(latent_representations)
+    
+    # 绘制t-SNE结果
+    plt.figure(figsize=(12, 10))
+    cmap = plt.cm.get_cmap('tab20', num_classes)
+    
+    for i in range(num_classes):
+        indices = all_labels == i
+        if np.any(indices):  # 只绘制有样本的类别
+            plt.scatter(tsne_results[indices, 0], tsne_results[indices, 1], 
+                      c=[cmap(i)], label=f'类别 {i}', alpha=0.7)
+    
+    plt.title('t-SNE可视化潜在空间')
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.tight_layout()
+    plt.savefig('tsne_visualization.png', dpi=300)
+    plt.show()
+
+class FeatureBasedModel(nn.Module):
+    """
+    基于手工特征的全连接神经网络模型
+    """
+    def __init__(self, input_dim, num_classes, hidden_dims=[128, 64], dropout=0.3):
+        super(FeatureBasedModel, self).__init__()
+        
+        layers = []
+        prev_dim = input_dim
+        
+        # 添加隐藏层
+        for dim in hidden_dims:
+            layers.append(nn.Linear(prev_dim, dim))
+            layers.append(nn.ReLU())
+            layers.append(nn.Dropout(dropout))
+            prev_dim = dim
+        
+        # 输出层
+
+
+        layers.append(nn.Linear(prev_dim, num_classes))
+        
+        self.model = nn.Sequential(*layers)
+        
+        # 用于获取潜在表示的辅助函数
+        self.hidden_layers = nn.Sequential(*layers[:-1])  # 除了最后一层
+    
+    def forward(self, x):
+        outputs = self.model(x)
+        # 为了与CNN-LSTM-Attention模型兼容，我们返回一个假的注意力权重
+        # 实际上这个模型没有注意力机制
+        batch_size = x.size(0)
+        dummy_attention = torch.ones(batch_size, 10) / 10  # 10是任意选择的
+        return outputs, dummy_attention
+    
+    def get_latent(self, x):
+        """
+        获取倒数第二层的输出作为潜在表示
+        """
+        return self.hidden_layers(x)
+
+if __name__ == "__main__":
+    main()
