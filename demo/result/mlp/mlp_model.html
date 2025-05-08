@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="800" height="600" fill="#f8f9fa" rx="10" ry="10"/>
+  
+  <!-- Title -->
+  <text x="400" y="40" font-family="Arial, sans-serif" font-size="24" font-weight="bold" text-anchor="middle" fill="#333">MLP Classifier Structure Diagram</text>
+  
+  <!-- Input Layer -->
+  <rect x="100" y="100" width="120" height="60" rx="8" ry="8" fill="#6ab7ff" stroke="#0066cc" stroke-width="2"/>
+  <text x="160" y="135" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="#333">输入层</text>
+  <text x="160" y="155" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">input_dim</text>
+  
+  <!-- Hidden Layers -->
+  <!-- Layer 1 -->
+  <rect x="100" y="200" width="120" height="50" rx="8" ry="8" fill="#fff" stroke="#333" stroke-width="2"/>
+  <text x="160" y="230" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Linear(input_dim, 256)</text>
+  
+  <rect x="100" y="260" width="120" height="30" rx="8" ry="8" fill="#ffd700" stroke="#cc9900" stroke-width="2"/>
+  <text x="160" y="280" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">BatchNorm1d(256)</text>
+  
+  <rect x="100" y="300" width="120" height="30" rx="8" ry="8" fill="#90ee90" stroke="#006400" stroke-width="2"/>
+  <text x="160" y="320" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">ReLU()</text>
+  
+  <rect x="100" y="340" width="120" height="30" rx="8" ry="8" fill="#ffb6c1" stroke="#c71585" stroke-width="2"/>
+  <text x="160" y="360" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Dropout(0.3)</text>
+  
+  <!-- Layer 2 -->
+  <rect x="280" y="200" width="120" height="50" rx="8" ry="8" fill="#fff" stroke="#333" stroke-width="2"/>
+  <text x="340" y="230" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Linear(256, 128)</text>
+  
+  <rect x="280" y="260" width="120" height="30" rx="8" ry="8" fill="#ffd700" stroke="#cc9900" stroke-width="2"/>
+  <text x="340" y="280" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">BatchNorm1d(128)</text>
+  
+  <rect x="280" y="300" width="120" height="30" rx="8" ry="8" fill="#90ee90" stroke="#006400" stroke-width="2"/>
+  <text x="340" y="320" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">ReLU()</text>
+  
+  <rect x="280" y="340" width="120" height="30" rx="8" ry="8" fill="#ffb6c1" stroke="#c71585" stroke-width="2"/>
+  <text x="340" y="360" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Dropout(0.3)</text>
+  
+  <!-- Layer 3 -->
+  <rect x="460" y="200" width="120" height="50" rx="8" ry="8" fill="#fff" stroke="#333" stroke-width="2"/>
+  <text x="520" y="230" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Linear(128, 64)</text>
+  
+  <rect x="460" y="260" width="120" height="30" rx="8" ry="8" fill="#ffd700" stroke="#cc9900" stroke-width="2"/>
+  <text x="520" y="280" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">BatchNorm1d(64)</text>
+  
+  <rect x="460" y="300" width="120" height="30" rx="8" ry="8" fill="#90ee90" stroke="#006400" stroke-width="2"/>
+  <text x="520" y="320" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">ReLU()</text>
+  
+  <rect x="460" y="340" width="120" height="30" rx="8" ry="8" fill="#ffb6c1" stroke="#c71585" stroke-width="2"/>
+  <text x="520" y="360" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Dropout(0.3)</text>
+  
+  <!-- Output Layer -->
+  <rect x="640" y="200" width="120" height="50" rx="8" ry="8" fill="#ff9999" stroke="#cc0000" stroke-width="2"/>
+  <text x="700" y="230" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="#333">输出层</text>
+  <text x="700" y="250" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Linear(64, num_classes)</text>
+  
+  <!-- Connections -->
+  <!-- Input to Layer 1 -->
+  <line x1="220" y1="130" x2="280" y2="130" stroke="#666" stroke-width="2"/>
+  <line x1="280" y1="130" x2="280" y2="225" stroke="#666" stroke-width="2"/>
+  <polygon points="275,225 280,235 285,225" fill="#666"/>
+  
+  <!-- Layer 1 to Layer 2 -->
+  <line x1="220" y1="225" x2="280" y2="225" stroke="#666" stroke-width="2"/>
+  <polygon points="275,225 280,235 285,225" fill="#666"/>
+  
+  <!-- Layer 2 to Layer 3 -->
+  <line x1="400" y1="225" x2="460" y2="225" stroke="#666" stroke-width="2"/>
+  <polygon points="455,225 460,235 465,225" fill="#666"/>
+  
+  <!-- Layer 3 to Output -->
+  <line x1="580" y1="225" x2="640" y2="225" stroke="#666" stroke-width="2"/>
+  <polygon points="635,225 640,235 645,225" fill="#666"/>
+  
+  <!-- Input to First Hidden Layer -->
+  <line x1="160" y1="160" x2="160" y2="200" stroke="#666" stroke-width="2"/>
+  <polygon points="155,195 160,205 165,195" fill="#666"/>
+  
+  <!-- Vertical Connections within Hidden Layers -->
+  <!-- Layer 1 -->
+  <line x1="160" y1="250" x2="160" y2="260" stroke="#666" stroke-width="2"/>
+  <polygon points="155,255 160,265 165,255" fill="#666"/>
+  
+  <line x1="160" y1="290" x2="160" y2="300" stroke="#666" stroke-width="2"/>
+  <polygon points="155,295 160,305 165,295" fill="#666"/>
+  
+  <line x1="160" y1="330" x2="160" y2="340" stroke="#666" stroke-width="2"/>
+  <polygon points="155,335 160,345 165,335" fill="#666"/>
+  
+  <!-- Layer 2 -->
+  <line x1="340" y1="250" x2="340" y2="260" stroke="#666" stroke-width="2"/>
+  <polygon points="335,255 340,265 345,255" fill="#666"/>
+  
+  <line x1="340" y1="290" x2="340" y2="300" stroke="#666" stroke-width="2"/>
+  <polygon points="335,295 340,305 345,295" fill="#666"/>
+  
+  <line x1="340" y1="330" x2="340" y2="340" stroke="#666" stroke-width="2"/>
+  <polygon points="335,335 340,345 345,335" fill="#666"/>
+  
+  <!-- Layer 3 -->
+  <line x1="520" y1="250" x2="520" y2="260" stroke="#666" stroke-width="2"/>
+  <polygon points="515,255 520,265 525,255" fill="#666"/>
+  
+  <line x1="520" y1="290" x2="520" y2="300" stroke="#666" stroke-width="2"/>
+  <polygon points="515,295 520,305 525,295" fill="#666"/>
+  
+  <line x1="520" y1="330" x2="520" y2="340" stroke="#666" stroke-width="2"/>
+  <polygon points="515,335 520,345 525,335" fill="#666"/>
+  
+  <!-- Special Features -->
+  <rect x="100" y="420" width="660" height="120" rx="8" ry="8" fill="#f0f0f0" stroke="#888" stroke-width="2"/>
+  <text x="130" y="445" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#333">模型特性:</text>
+  <text x="130" y="475" font-family="Arial, sans-serif" font-size="14" fill="#333">• 支持特征输入 (batch_size, input_dim) 和原始信号输入 (batch_size, seq_length, channels)</text>
+  <text x="130" y="505" font-family="Arial, sans-serif" font-size="14" fill="#333">• 提供 get_latent() 方法获取特征嵌入表示</text>
+  <text x="130" y="535" font-family="Arial, sans-serif" font-size="14" fill="#333">• 返回 logits 和虚拟注意力权重 (用于接口一致性)</text>
+  
+  <!-- Legend - Horizontal layout -->
+  <rect x="100" y="70" width="20" height="20" fill="#6ab7ff" stroke="#0066cc" stroke-width="2"/>
+  <text x="125" y="85" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">输入层</text>
+  
+  <rect x="190" y="70" width="20" height="20" fill="#fff" stroke="#333" stroke-width="2"/>
+  <text x="215" y="85" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">线性层</text>
+  
+  <rect x="280" y="70" width="20" height="20" fill="#ffd700" stroke="#cc9900" stroke-width="2"/>
+  <text x="305" y="85" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">批量归一化</text>
+  
+  <rect x="390" y="70" width="20" height="20" fill="#90ee90" stroke="#006400" stroke-width="2"/>
+  <text x="415" y="85" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">ReLU激活</text>
+  
+  <rect x="490" y="70" width="20" height="20" fill="#ffb6c1" stroke="#c71585" stroke-width="2"/>
+  <text x="515" y="85" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">Dropout</text>
+  
+  <rect x="590" y="70" width="20" height="20" fill="#ff9999" stroke="#cc0000" stroke-width="2"/>
+  <text x="615" y="85" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">输出层</text>
+</svg>
