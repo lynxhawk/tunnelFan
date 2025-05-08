@@ -1,12 +1,1 @@
-{
-  "model_type": "svm",
-  "window_size": 1000,
-  "use_features": true,
-  "input_channels": null,
-  "seq_length": null,
-  "feature_dim": 75,
-  "num_classes": 38,
-  "svm_kernel": "rbf",
-  "svm_C": 1.0,
-  "svm_gamma": "scale"
-}
+{"model_type": "cnn_bigru_attention", "window_size": 1000, "use_features": false, "input_channels": 3, "seq_length": 1000, "feature_dim": null, "num_classes": 38, "svm_kernel": null, "svm_C": null, "svm_gamma": null}

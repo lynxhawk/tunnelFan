@@ -24,6 +24,10 @@ from cnn_attention import CNNClassifier  # 带注意力机制的CNN
 from cnn_model import SimpleCNNClassifier  # 不带注意力机制的简单CNN
 from svm_model import SVMClassifier  # 支持向量机分类器
 from pytorch_cnn_bigru_attention import CNNBiGRU_Attention
+from informer_models import (
+    DirectInformerClassifier, LightCNNInformerClassifier,
+    FeatureInformerClassifier, CNNInformerAttention
+)
 
 
 def parse_arguments():
@@ -50,9 +54,11 @@ def parse_arguments():
     # 模型相关参数
     parser.add_argument('--model_type', type=str,
                         choices=['cnn_lstm_attention', 'cnn_bigru_attention',
-                                 'cnn_attention', 'cnn_model', 'mlp', 'svm'],
+                                 'cnn_attention', 'cnn_model', 'mlp', 'svm',
+                                 'direct_informer', 'light_cnn_informer', 'feature_informer',  # 添加新的模型类型
+                                 'cnn_informer_attention'],
                         default='cnn_lstm_attention',
-                        help='模型类型：CNN-LSTM-Attention/CNN-BiGRU-Attention/CNN(带注意力)/CNN简单版/MLP/SVM')
+                        help='模型类型：CNN-LSTM-Attention/CNN-BiGRU-Attention/CNN(带注意力)/CNN简单版/MLP/SVM/直接Informer/轻量CNN-Informer/特征-Informer/CNN-Informer-Attention')
     parser.add_argument('--filters', type=int, default=64,
                         help='CNN滤波器数量')
     parser.add_argument('--kernel_size', type=int, default=3,
@@ -61,6 +67,18 @@ def parse_arguments():
                         help='LSTM隐藏单元数量')
     parser.add_argument('--dropout', type=float, default=0.3,
                         help='Dropout比率')
+
+    # 添加Informer特定参数
+    parser.add_argument('--informer_d_model', type=int, default=256,
+                        help='Informer模型维度')
+    parser.add_argument('--informer_n_heads', type=int, default=8,
+                        help='Informer中的注意力头数量')
+    parser.add_argument('--informer_d_ff', type=int, default=512,
+                        help='Informer中前馈网络的维度')
+    parser.add_argument('--informer_depth', type=int, default=2,
+                        help='Informer编码器的层数')
+    parser.add_argument('--informer_factor', type=int, default=5,
+                        help='Informer中ProbSparse注意力的因子')
 
     # SVM特定参数
     parser.add_argument('--svm_kernel', type=str, default='rbf',
@@ -138,20 +156,31 @@ def create_model(model_type, input_shape, num_classes, args, device):
     """
     if args.use_features:
         # 对于特征数据
-        if model_type not in ['mlp', 'svm']:
+        if model_type not in ['mlp', 'svm', 'feature_informer']:  # 添加feature_informer
             print(f"警告: 对于特征数据，'{model_type}'模型不适用，自动切换为'mlp'。")
             model_type = 'mlp'
 
         input_dim = input_shape[1]  # 特征维度
 
-        if model_type == 'mlp':
+        if model_type == 'feature_informer':  # 新增的特征+Informer模型
+            model = FeatureInformerClassifier(
+                feature_dim=input_dim,
+                num_classes=num_classes,
+                d_model=args.informer_d_model,
+                n_heads=args.informer_n_heads,
+                d_ff=args.informer_d_ff,
+                depth=args.informer_depth,
+                factor=args.informer_factor,
+                dropout_rate=args.dropout
+            )    
+        elif model_type == 'mlp':
             model = MLPClassifier(
                 input_dim=input_dim,
                 num_classes=num_classes,
                 hidden_layers=[256, 128, 64],
                 dropout_rate=args.dropout
             )
-        else:  # model_type == 'svm'
+        elif model_type == 'svm':
             model = SVMClassifier(
                 input_shape=input_shape,
                 num_classes=num_classes,
@@ -164,7 +193,47 @@ def create_model(model_type, input_shape, num_classes, args, device):
         input_channels = input_shape[2]  # 通常是3（X, Y, Z轴）
         seq_length = input_shape[1]      # 窗口大小
 
-        if model_type == 'cnn_lstm_attention':
+        if model_type == 'direct_informer':  # 新增的直接Informer模型
+            model = DirectInformerClassifier(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                d_model=args.informer_d_model,
+                n_heads=args.informer_n_heads,
+                d_ff=args.informer_d_ff,
+                depth=args.informer_depth,
+                factor=args.informer_factor,
+                dropout_rate=args.dropout
+            )
+        elif model_type == 'light_cnn_informer':  # 新增的轻量级CNN+Informer模型
+            model = LightCNNInformerClassifier(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                filters=args.filters // 2,  # 使用较少的滤波器
+                kernel_size=args.kernel_size,
+                d_model=args.informer_d_model,
+                n_heads=args.informer_n_heads,
+                d_ff=args.informer_d_ff,
+                depth=args.informer_depth,
+                factor=args.informer_factor,
+                dropout_rate=args.dropout
+            )
+        elif model_type == 'cnn_informer_attention':  # 原始的CNN+Informer模型
+            model = CNNInformerAttention(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                filters=args.filters,
+                kernel_size=args.kernel_size,
+                informer_d_model=args.informer_d_model,
+                informer_n_heads=args.informer_n_heads,
+                informer_d_ff=args.informer_d_ff,
+                informer_depth=args.informer_depth,
+                informer_factor=args.informer_factor,
+                dropout_rate=args.dropout
+            )
+        elif model_type == 'cnn_lstm_attention':
             model = CNNLSTM_Attention(
                 input_channels=input_channels,
                 seq_length=seq_length,

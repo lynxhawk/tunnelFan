@@ -308,3 +308,177 @@ class DirectInformerClassifier(nn.Module):
         context = torch.sum(x * attention_weights, dim=1)
 
         return context  # 返回上下文向量作为潜在表示
+# 使用特征作为输入的Informer模型
+
+
+class FeatureInformerClassifier(nn.Module):
+    """使用手动提取特征的Informer分类器"""
+
+    def __init__(self, feature_dim, num_classes=38,
+                 d_model=256, n_heads=8, d_ff=512, depth=2,
+                 factor=5, dropout_rate=0.3):
+        super(FeatureInformerClassifier, self).__init__()
+
+        # 保存参数
+        self.feature_dim = feature_dim
+        self.num_classes = num_classes
+        self.d_model = d_model
+
+        # 特征映射层
+        self.feature_mapping = nn.Linear(feature_dim, d_model)
+
+        # Informer编码器 - 对于特征输入，我们将其视为序列长度为1的序列
+        self.informer_encoder = nn.Sequential(
+            nn.Linear(d_model, d_ff),
+            nn.ReLU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(d_ff, d_model),
+            nn.LayerNorm(d_model)
+        )
+
+        # 分类头
+        self.fc1 = nn.Linear(d_model, 128)
+        self.dropout = nn.Dropout(dropout_rate)
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, num_classes)
+
+    def forward(self, x):
+        # x shape: (batch_size, feature_dim)
+
+        # 映射到模型维度
+        x = self.feature_mapping(x)  # (batch_size, d_model)
+
+        # 通过简化的编码器 - 没有自注意力，因为这里我们处理的是单个特征向量
+        x = self.informer_encoder(x)  # (batch_size, d_model)
+
+        # 分类
+        x = F.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = F.relu(self.fc2(x))
+        output = self.fc3(x)
+
+        # 对于特征输入，没有真正的注意力权重，所以返回一个虚拟的权重
+        dummy_attention = torch.ones(x.size(0), 1, device=x.device)
+
+        return output, dummy_attention
+
+    def get_latent(self, x):
+        """获取潜在表示用于可视化"""
+        # 映射到模型维度
+        x = self.feature_mapping(x)  # (batch_size, d_model)
+
+        # 通过简化的编码器
+        x = self.informer_encoder(x)  # (batch_size, d_model)
+
+        return x  # 返回编码器输出作为潜在表示
+
+
+# 轻量级CNN + Informer的模型
+class LightCNNInformerClassifier(nn.Module):
+    """使用轻量级CNN + Informer的分类器"""
+
+    def __init__(self, input_channels=3, seq_length=1000, num_classes=38,
+                 filters=32, kernel_size=3, d_model=256, n_heads=8,
+                 d_ff=512, depth=2, factor=5, dropout_rate=0.3):
+        super(LightCNNInformerClassifier, self).__init__()
+
+        # 保存参数
+        self.input_channels = input_channels
+        self.seq_length = seq_length
+        self.num_classes = num_classes
+        self.d_model = d_model
+
+        # 轻量级CNN - 只做一层卷积和池化，主要目的是降维
+        self.conv = nn.Conv1d(input_channels, filters,
+                              kernel_size, padding=kernel_size//2)
+        self.bn = nn.BatchNorm1d(filters)
+        self.pool = nn.MaxPool1d(4)  # 进行4倍下采样
+
+        # 计算CNN后的序列长度
+        self.cnn_seq_len = seq_length // 4
+
+        # CNN输出映射到模型维度
+        self.cnn_to_informer = nn.Linear(filters, d_model)
+
+        # Informer编码器
+        self.informer_encoder = InformerEncoder(
+            d_model=d_model,
+            n_heads=n_heads,
+            d_ff=d_ff,
+            depth=depth,
+            dropout=dropout_rate,
+            factor=factor
+        )
+
+        # 全局注意力池化
+        self.global_attention = nn.Sequential(
+            nn.Linear(d_model, 1),
+            nn.Softmax(dim=1)
+        )
+
+        # 分类头
+        self.fc1 = nn.Linear(d_model, 128)
+        self.dropout = nn.Dropout(dropout_rate)
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, num_classes)
+
+    def forward(self, x):
+        # x shape: (batch_size, seq_length, input_channels)
+
+        # 调整维度用于CNN
+        x = x.permute(0, 2, 1)  # (batch_size, input_channels, seq_length)
+
+        # 应用轻量级CNN
+        x = F.relu(self.bn(self.conv(x)))
+        x = self.pool(x)
+
+        # 调整维度用于Informer
+        x = x.permute(0, 2, 1)  # (batch_size, seq_length/4, filters)
+
+        # 映射到模型维度
+        x = self.cnn_to_informer(x)  # (batch_size, seq_length/4, d_model)
+
+        # Informer编码器
+        # (batch_size, seq_length/4, d_model)
+        x, attns = self.informer_encoder(x)
+
+        # 全局注意力池化
+        attention_weights = self.global_attention(
+            x)  # (batch_size, seq_length/4, 1)
+        # (batch_size, d_model)
+        context = torch.sum(x * attention_weights, dim=1)
+
+        # 分类
+        x = F.relu(self.fc1(context))
+        x = self.dropout(x)
+        x = F.relu(self.fc2(x))
+        output = self.fc3(x)
+
+        # 返回分类输出和注意力权重
+        return output, attention_weights.squeeze(2)
+
+    def get_latent(self, x):
+        """获取潜在表示用于可视化"""
+        # 调整维度用于CNN
+        x = x.permute(0, 2, 1)  # (batch_size, input_channels, seq_length)
+
+        # 应用轻量级CNN
+        x = F.relu(self.bn(self.conv(x)))
+        x = self.pool(x)
+
+        # 调整维度用于Informer
+        x = x.permute(0, 2, 1)  # (batch_size, seq_length/4, filters)
+
+        # 映射到模型维度
+        x = self.cnn_to_informer(x)  # (batch_size, seq_length/4, d_model)
+
+        # Informer编码器
+        x, _ = self.informer_encoder(x)  # (batch_size, seq_length/4, d_model)
+
+        # 全局注意力池化
+        attention_weights = self.global_attention(
+            x)  # (batch_size, seq_length/4, 1)
+        # (batch_size, d_model)
+        context = torch.sum(x * attention_weights, dim=1)
+
+        return context  # 返回上下文向量作为潜在表示
