@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 800 750" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="800" height="750" fill="#f8f9fa" rx="10" ry="10"/>
+  
+  <!-- Title -->
+  <text x="400" y="40" font-family="Arial, sans-serif" font-size="24" font-weight="bold" text-anchor="middle" fill="#333">FeatureInformerClassifier 模型结构图</text>
+  
+  <!-- Legend - Horizontal layout -->
+  <rect x="80" y="70" width="16" height="16" fill="#6ab7ff" stroke="#0066cc" stroke-width="2"/>
+  <text x="100" y="83" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">特征输入</text>
+  
+  <rect x="190" y="70" width="16" height="16" fill="#f0e68c" stroke="#daa520" stroke-width="2"/>
+  <text x="210" y="83" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">特征映射层</text>
+  
+  <rect x="310" y="70" width="16" height="16" fill="#a0a0ff" stroke="#0000ff" stroke-width="2"/>
+  <text x="330" y="83" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">简化编码器</text>
+  
+  <rect x="430" y="70" width="16" height="16" fill="#d8bfd8" stroke="#8a2be2" stroke-width="2"/>
+  <text x="450" y="83" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">全连接层</text>
+  
+  <rect x="550" y="70" width="16" height="16" fill="#ff9999" stroke="#cc0000" stroke-width="2"/>
+  <text x="570" y="83" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">输出层</text>
+  
+  <rect x="670" y="70" width="16" height="16" fill="#add8e6" stroke="#4682b4" stroke-width="2"/>
+  <text x="690" y="83" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">激活函数</text>
+  
+  <!-- Input Feature Layer -->
+  <rect x="250" y="120" width="300" height="60" rx="8" ry="8" fill="#6ab7ff" stroke="#0066cc" stroke-width="2"/>
+  <text x="400" y="150" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="#333">特征输入</text>
+  <text x="400" y="170" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">(batch_size, feature_dim)</text>
+  
+  <!-- Feature Mapping -->
+  <rect x="250" y="200" width="300" height="40" rx="8" ry="8" fill="#f0e68c" stroke="#daa520" stroke-width="2"/>
+  <text x="400" y="225" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Linear(feature_dim, d_model)</text>
+  
+  <!-- Simplified Encoder (No Self-Attention) -->
+  <rect x="250" y="260" width="300" height="120" rx="8" ry="8" fill="#a0a0ff" stroke="#0000ff" stroke-width="2"/>
+  <text x="400" y="285" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="#333">简化编码器 (没有自注意力)</text>
+  <text x="400" y="310" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Linear(d_model, d_ff)</text>
+  <text x="400" y="330" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">ReLU</text>
+  <text x="400" y="350" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Dropout(dropout_rate)</text>
+  <text x="400" y="370" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Linear(d_ff, d_model) + LayerNorm</text>
+  
+  <!-- FC Layers -->
+  <rect x="250" y="400" width="300" height="30" rx="8" ry="8" fill="#d8bfd8" stroke="#8a2be2" stroke-width="2"/>
+  <text x="400" y="420" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Linear(d_model, 128)</text>
+  
+  <rect x="250" y="440" width="300" height="30" rx="8" ry="8" fill="#add8e6" stroke="#4682b4" stroke-width="2"/>
+  <text x="400" y="460" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">ReLU</text>
+  
+  <rect x="250" y="480" width="300" height="30" rx="8" ry="8" fill="#e6e6e6" stroke="#666666" stroke-width="2"/>
+  <text x="400" y="500" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Dropout(dropout_rate)</text>
+  
+  <rect x="400" y="520" width="150" height="30" rx="8" ry="8" fill="#d8bfd8" stroke="#8a2be2" stroke-width="2"/>
+  <text x="475" y="540" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Linear(128, 64)</text>
+  
+  <rect x="400" y="560" width="150" height="30" rx="8" ry="8" fill="#add8e6" stroke="#4682b4" stroke-width="2"/>
+  <text x="475" y="580" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">ReLU</text>
+  
+  <!-- Output Layer -->
+  <rect x="400" y="600" width="150" height="40" rx="8" ry="8" fill="#ff9999" stroke="#cc0000" stroke-width="2"/>
+  <text x="475" y="620" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="#333">输出层</text>
+  <text x="475" y="635" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Linear(64, num_classes)</text>
+  
+  <!-- FC2 Layer and beyond moved to the right -->  
+  <rect x="250" y="520" width="120" height="110" rx="8" ry="8" fill="#f0f0f0" stroke="#888" stroke-width="2"/>
+  <text x="310" y="545" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="#333">特性说明</text>
+  <text x="310" y="570" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="middle" fill="#333">- 用于特征输入</text>
+  <text x="310" y="590" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="middle" fill="#333">- 没有自注意力</text>
+  <text x="310" y="610" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="middle" fill="#333">- 简化的编码器</text>
+  
+  <!-- Connections -->
+  <!-- Input to Mapping -->
+  <line x1="400" y1="180" x2="400" y2="200" stroke="#666" stroke-width="2"/>
+  <polygon points="395,195 400,205 405,195" fill="#666"/>
+  
+  <!-- Mapping to Encoder -->
+  <line x1="400" y1="240" x2="400" y2="260" stroke="#666" stroke-width="2"/>
+  <polygon points="395,255 400,265 405,255" fill="#666"/>
+  
+  <!-- Encoder to FC1 -->
+  <line x1="400" y1="380" x2="400" y2="400" stroke="#666" stroke-width="2"/>
+  <polygon points="395,395 400,405 405,395" fill="#666"/>
+  
+  <!-- FC1 to ReLU -->
+  <line x1="400" y1="430" x2="400" y2="440" stroke="#666" stroke-width="2"/>
+  <polygon points="395,435 400,445 405,435" fill="#666"/>
+  
+  <!-- ReLU to Dropout -->
+  <line x1="400" y1="470" x2="400" y2="480" stroke="#666" stroke-width="2"/>
+  <polygon points="395,475 400,485 405,475" fill="#666"/>
+  
+  <!-- Dropout to FC2 -->
+  <line x1="400" y1="510" x2="400" y2="520" stroke="#666" stroke-width="2"/>
+  <polygon points="395,515 400,525 405,515" fill="#666"/>
+  
+  <!-- FC2 to ReLU -->
+  <line x1="475" y1="550" x2="475" y2="560" stroke="#666" stroke-width="2"/>
+  <polygon points="470,555 475,565 480,555" fill="#666"/>
+  
+  <!-- ReLU to Output -->
+  <line x1="475" y1="590" x2="475" y2="600" stroke="#666" stroke-width="2"/>
+  <polygon points="470,595 475,605 480,595" fill="#666"/>
+  
+  <!-- Dummy Attention Output -->
+  <path d="M 550 350 C 600 350, 600 400, 600 650" stroke="#ff4500" stroke-width="2" stroke-dasharray="5,5" fill="none"/>
+  <text x="625" y="450" font-family="Arial, sans-serif" font-size="12" fill="#ff4500" text-anchor="middle" transform="rotate(90, 625, 450)">虚拟注意力权重</text>
+</svg>

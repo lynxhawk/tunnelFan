@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 800 750" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="800" height="750" fill="#f8f9fa" rx="10" ry="10"/>
+  
+  <!-- Title -->
+  <text x="400" y="40" font-family="Arial, sans-serif" font-size="24" font-weight="bold" text-anchor="middle" fill="#333">CNNLSTM_Attention 模型结构图</text>
+  
+  <!-- Legend - Horizontal layout -->
+  <rect x="50" y="70" width="16" height="16" fill="#6ab7ff" stroke="#0066cc" stroke-width="2"/>
+  <text x="70" y="83" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">输入层</text>
+  
+  <rect x="130" y="70" width="16" height="16" fill="#ffd700" stroke="#cc9900" stroke-width="2"/>
+  <text x="150" y="83" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">卷积层</text>
+  
+  <rect x="210" y="70" width="16" height="16" fill="#90ee90" stroke="#006400" stroke-width="2"/>
+  <text x="230" y="83" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">批量归一化</text>
+  
+  <rect x="310" y="70" width="16" height="16" fill="#add8e6" stroke="#4682b4" stroke-width="2"/>
+  <text x="330" y="83" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">ReLU</text>
+  
+  <rect x="370" y="70" width="16" height="16" fill="#ffb6c1" stroke="#c71585" stroke-width="2"/>
+  <text x="390" y="83" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">池化层</text>
+  
+  <rect x="445" y="70" width="16" height="16" fill="#a0a0ff" stroke="#0000ff" stroke-width="2"/>
+  <text x="465" y="83" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">LSTM层</text>
+  
+  <rect x="525" y="70" width="16" height="16" fill="#ffa07a" stroke="#ff4500" stroke-width="2"/>
+  <text x="545" y="83" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">注意力层</text>
+  
+  <rect x="615" y="70" width="16" height="16" fill="#d8bfd8" stroke="#8a2be2" stroke-width="2"/>
+  <text x="635" y="83" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">全连接层</text>
+  
+  <rect x="700" y="70" width="16" height="16" fill="#ff9999" stroke="#cc0000" stroke-width="2"/>
+  <text x="720" y="83" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">输出层</text>
+  
+  <!-- Input Layer -->
+  <rect x="50" y="120" width="140" height="60" rx="8" ry="8" fill="#6ab7ff" stroke="#0066cc" stroke-width="2"/>
+  <text x="120" y="150" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="#333">输入层</text>
+  <text x="120" y="170" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">(batch_size, seq_length, input_channels)</text>
+  
+  <!-- Permute Operation -->
+  <rect x="50" y="200" width="140" height="40" rx="8" ry="8" fill="#e6e6e6" stroke="#666666" stroke-width="2"/>
+  <text x="120" y="225" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Permute(0, 2, 1)</text>
+  
+  <!-- CNN Block 1 -->
+  <rect x="250" y="120" width="160" height="40" rx="8" ry="8" fill="#ffd700" stroke="#cc9900" stroke-width="2"/>
+  <text x="330" y="145" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Conv1d(input_channels, filters, kernel_size)</text>
+  
+  <rect x="250" y="170" width="160" height="30" rx="8" ry="8" fill="#90ee90" stroke="#006400" stroke-width="2"/>
+  <text x="330" y="190" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">BatchNorm1d(filters)</text>
+  
+  <rect x="250" y="210" width="160" height="30" rx="8" ry="8" fill="#add8e6" stroke="#4682b4" stroke-width="2"/>
+  <text x="330" y="230" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">ReLU</text>
+  
+  <rect x="250" y="250" width="160" height="30" rx="8" ry="8" fill="#ffb6c1" stroke="#c71585" stroke-width="2"/>
+  <text x="330" y="270" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">MaxPool1d(2)</text>
+  
+  <!-- CNN Block 2 -->
+  <rect x="250" y="300" width="160" height="40" rx="8" ry="8" fill="#ffd700" stroke="#cc9900" stroke-width="2"/>
+  <text x="330" y="325" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Conv1d(filters, filters*2, kernel_size)</text>
+  
+  <rect x="250" y="350" width="160" height="30" rx="8" ry="8" fill="#90ee90" stroke="#006400" stroke-width="2"/>
+  <text x="330" y="370" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">BatchNorm1d(filters*2)</text>
+  
+  <rect x="250" y="390" width="160" height="30" rx="8" ry="8" fill="#add8e6" stroke="#4682b4" stroke-width="2"/>
+  <text x="330" y="410" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">ReLU</text>
+  
+  <rect x="250" y="430" width="160" height="30" rx="8" ry="8" fill="#ffb6c1" stroke="#c71585" stroke-width="2"/>
+  <text x="330" y="450" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">MaxPool1d(2)</text>
+  
+  <!-- CNN Block 3 -->
+  <rect x="250" y="480" width="160" height="40" rx="8" ry="8" fill="#ffd700" stroke="#cc9900" stroke-width="2"/>
+  <text x="330" y="505" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Conv1d(filters*2, filters*4, kernel_size)</text>
+  
+  <rect x="250" y="530" width="160" height="30" rx="8" ry="8" fill="#90ee90" stroke="#006400" stroke-width="2"/>
+  <text x="330" y="550" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">BatchNorm1d(filters*4)</text>
+  
+  <rect x="250" y="570" width="160" height="30" rx="8" ry="8" fill="#add8e6" stroke="#4682b4" stroke-width="2"/>
+  <text x="330" y="590" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">ReLU</text>
+  
+  <!-- Permute for LSTM -->
+  <rect x="250" y="620" width="160" height="40" rx="8" ry="8" fill="#e6e6e6" stroke="#666666" stroke-width="2"/>
+  <text x="330" y="645" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Permute(0, 2, 1)</text>
+  
+  <!-- LSTM Block -->
+  <rect x="470" y="120" width="160" height="60" rx="8" ry="8" fill="#a0a0ff" stroke="#0000ff" stroke-width="2"/>
+  <text x="550" y="145" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="#333">双向LSTM</text>
+  <text x="550" y="165" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">(filters*4, lstm_hidden, bidirectional=True)</text>
+  
+  <rect x="470" y="190" width="160" height="30" rx="8" ry="8" fill="#e6e6e6" stroke="#666666" stroke-width="2"/>
+  <text x="550" y="210" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Dropout(0.3)</text>
+  
+  <!-- Attention Block -->
+  <rect x="470" y="240" width="160" height="120" rx="8" ry="8" fill="#ffa07a" stroke="#ff4500" stroke-width="2"/>
+  <text x="550" y="265" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="#333">自注意力层</text>
+  <text x="550" y="290" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">W: Linear(lstm_hidden*2, attention_dim)</text>
+  <text x="550" y="310" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">u: Linear(attention_dim, 1)</text>
+  <text x="550" y="330" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">tanh + softmax</text>
+  <text x="550" y="350" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">加权和</text>
+  
+  <!-- FC Layers -->
+  <rect x="470" y="380" width="160" height="30" rx="8" ry="8" fill="#d8bfd8" stroke="#8a2be2" stroke-width="2"/>
+  <text x="550" y="400" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Linear(lstm_hidden*2, 128)</text>
+  
+  <rect x="470" y="420" width="160" height="30" rx="8" ry="8" fill="#add8e6" stroke="#4682b4" stroke-width="2"/>
+  <text x="550" y="440" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">ReLU</text>
+  
+  <rect x="470" y="460" width="160" height="30" rx="8" ry="8" fill="#e6e6e6" stroke="#666666" stroke-width="2"/>
+  <text x="550" y="480" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Dropout(0.3)</text>
+  
+  <rect x="470" y="500" width="160" height="30" rx="8" ry="8" fill="#d8bfd8" stroke="#8a2be2" stroke-width="2"/>
+  <text x="550" y="520" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Linear(128, 64)</text>
+  
+  <rect x="470" y="540" width="160" height="30" rx="8" ry="8" fill="#add8e6" stroke="#4682b4" stroke-width="2"/>
+  <text x="550" y="560" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">ReLU</text>
+  
+  <!-- Output Layer -->
+  <rect x="470" y="590" width="160" height="40" rx="8" ry="8" fill="#ff9999" stroke="#cc0000" stroke-width="2"/>
+  <text x="550" y="610" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="#333">输出层</text>
+  <text x="550" y="625" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Linear(64, num_classes)</text>
+  
+  <!-- Connections -->
+  <!-- Input to Permute -->
+  <line x1="120" y1="180" x2="120" y2="200" stroke="#666" stroke-width="2"/>
+  <polygon points="115,195 120,205 125,195" fill="#666"/>
+  
+  <!-- Permute to Conv1 -->
+  <line x1="190" y1="220" x2="230" y2="220" stroke="#666" stroke-width="2"/>
+  <line x1="230" y1="220" x2="230" y2="140" stroke="#666" stroke-width="2"/>
+  <line x1="230" y1="140" x2="250" y2="140" stroke="#666" stroke-width="2"/>
+  <polygon points="245,135 250,145 255,135" fill="#666"/>
+  
+  <!-- CNN Block 1 Connections -->
+  <line x1="330" y1="160" x2="330" y2="170" stroke="#666" stroke-width="2"/>
+  <polygon points="325,165 330,175 335,165" fill="#666"/>
+  
+  <line x1="330" y1="200" x2="330" y2="210" stroke="#666" stroke-width="2"/>
+  <polygon points="325,205 330,215 335,205" fill="#666"/>
+  
+  <line x1="330" y1="240" x2="330" y2="250" stroke="#666" stroke-width="2"/>
+  <polygon points="325,245 330,255 335,245" fill="#666"/>
+  
+  <!-- Pool1 to Conv2 -->
+  <line x1="330" y1="280" x2="330" y2="300" stroke="#666" stroke-width="2"/>
+  <polygon points="325,295 330,305 335,295" fill="#666"/>
+  
+  <!-- CNN Block 2 Connections -->
+  <line x1="330" y1="340" x2="330" y2="350" stroke="#666" stroke-width="2"/>
+  <polygon points="325,345 330,355 335,345" fill="#666"/>
+  
+  <line x1="330" y1="380" x2="330" y2="390" stroke="#666" stroke-width="2"/>
+  <polygon points="325,385 330,395 335,385" fill="#666"/>
+  
+  <line x1="330" y1="420" x2="330" y2="430" stroke="#666" stroke-width="2"/>
+  <polygon points="325,425 330,435 335,425" fill="#666"/>
+  
+  <!-- Pool2 to Conv3 -->
+  <line x1="330" y1="460" x2="330" y2="480" stroke="#666" stroke-width="2"/>
+  <polygon points="325,475 330,485 335,475" fill="#666"/>
+  
+  <!-- CNN Block 3 Connections -->
+  <line x1="330" y1="520" x2="330" y2="530" stroke="#666" stroke-width="2"/>
+  <polygon points="325,525 330,535 335,525" fill="#666"/>
+  
+  <line x1="330" y1="560" x2="330" y2="570" stroke="#666" stroke-width="2"/>
+  <polygon points="325,565 330,575 335,565" fill="#666"/>
+  
+  <!-- ReLU to Permute -->
+  <line x1="330" y1="600" x2="330" y2="620" stroke="#666" stroke-width="2"/>
+  <polygon points="325,615 330,625 335,615" fill="#666"/>
+  
+  <!-- Permute to LSTM -->
+  <line x1="410" y1="640" x2="440" y2="640" stroke="#666" stroke-width="2"/>
+  <line x1="440" y1="640" x2="440" y2="150" stroke="#666" stroke-width="2"/>
+  <line x1="440" y1="150" x2="470" y2="150" stroke="#666" stroke-width="2"/>
+  <polygon points="465,145 470,155 475,145" fill="#666"/>
+  
+  <!-- LSTM to Dropout -->
+  <line x1="550" y1="180" x2="550" y2="190" stroke="#666" stroke-width="2"/>
+  <polygon points="545,185 550,195 555,185" fill="#666"/>
+  
+  <!-- Dropout to Attention -->
+  <line x1="550" y1="220" x2="550" y2="240" stroke="#666" stroke-width="2"/>
+  <polygon points="545,235 550,245 555,235" fill="#666"/>
+  
+  <!-- Attention to FC1 -->
+  <line x1="550" y1="360" x2="550" y2="380" stroke="#666" stroke-width="2"/>
+  <polygon points="545,375 550,385 555,375" fill="#666"/>
+  
+  <!-- FC1 to ReLU -->
+  <line x1="550" y1="410" x2="550" y2="420" stroke="#666" stroke-width="2"/>
+  <polygon points="545,415 550,425 555,415" fill="#666"/>
+  
+  <!-- ReLU to Dropout -->
+  <line x1="550" y1="450" x2="550" y2="460" stroke="#666" stroke-width="2"/>
+  <polygon points="545,455 550,465 555,455" fill="#666"/>
+  
+  <!-- Dropout to FC2 -->
+  <line x1="550" y1="490" x2="550" y2="500" stroke="#666" stroke-width="2"/>
+  <polygon points="545,495 550,505 555,495" fill="#666"/>
+  
+  <!-- FC2 to ReLU -->
+  <line x1="550" y1="530" x2="550" y2="540" stroke="#666" stroke-width="2"/>
+  <polygon points="545,535 550,545 555,535" fill="#666"/>
+  
+  <!-- ReLU to Output -->
+  <line x1="550" y1="570" x2="550" y2="590" stroke="#666" stroke-width="2"/>
+  <polygon points="545,585 550,595 555,585" fill="#666"/>
+  
+  <!-- Attention Weights Path -->
+  <path d="M 630 300 C 680 300, 680 400, 680 700" stroke="#ff4500" stroke-width="2" stroke-dasharray="5,5" fill="none"/>
+  <text x="700" y="450" font-family="Arial, sans-serif" font-size="12" fill="#ff4500" text-anchor="middle" transform="rotate(90, 700, 450)">注意力权重输出</text>
+  
+  <!-- Special Features Box -->
+  <rect x="60" y="680" width="680" height="60" rx="8" ry="8" fill="#f0f0f0" stroke="#888" stroke-width="2"/>
+  <text x="80" y="705" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#333">模型特性:</text>
+  <text x="80" y="730" font-family="Arial, sans-serif" font-size="12" fill="#333">• CNN + 双向LSTM + 自注意力机制，适用于振动信号分类，返回预测结果和注意力权重</text>
+</svg>

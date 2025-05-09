@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 800 650" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="800" height="650" fill="#f8f9fa" rx="10" ry="10"/>
+  
+  <!-- Title -->
+  <text x="400" y="40" font-family="Arial, sans-serif" font-size="24" font-weight="bold" text-anchor="middle" fill="#333">SimpleCNNClassifier 结构图</text>
+  
+  <!-- Legend - Horizontal layout -->
+  <rect x="100" y="70" width="20" height="20" fill="#6ab7ff" stroke="#0066cc" stroke-width="2"/>
+  <text x="125" y="85" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">输入层</text>
+  
+  <rect x="190" y="70" width="20" height="20" fill="#ffd700" stroke="#cc9900" stroke-width="2"/>
+  <text x="215" y="85" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">卷积层</text>
+  
+  <rect x="280" y="70" width="20" height="20" fill="#90ee90" stroke="#006400" stroke-width="2"/>
+  <text x="305" y="85" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">批量归一化</text>
+  
+  <rect x="390" y="70" width="20" height="20" fill="#ffb6c1" stroke="#c71585" stroke-width="2"/>
+  <text x="415" y="85" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">池化层</text>
+  
+  <rect x="490" y="70" width="20" height="20" fill="#d8bfd8" stroke="#8a2be2" stroke-width="2"/>
+  <text x="515" y="85" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">全连接层</text>
+  
+  <rect x="590" y="70" width="20" height="20" fill="#ff9999" stroke="#cc0000" stroke-width="2"/>
+  <text x="615" y="85" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">输出层</text>
+  
+  <!-- Input Layer -->
+  <rect x="50" y="120" width="120" height="60" rx="8" ry="8" fill="#6ab7ff" stroke="#0066cc" stroke-width="2"/>
+  <text x="110" y="155" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="#333">输入层</text>
+  <text x="110" y="175" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">(batch_size, seq_length, input_channels)</text>
+  
+  <!-- Permute Operation -->
+  <rect x="50" y="200" width="120" height="40" rx="8" ry="8" fill="#e6e6e6" stroke="#666666" stroke-width="2"/>
+  <text x="110" y="225" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Permute(0, 2, 1)</text>
+  
+  <!-- Conv Block 1 -->
+  <rect x="50" y="260" width="120" height="40" rx="8" ry="8" fill="#ffd700" stroke="#cc9900" stroke-width="2"/>
+  <text x="110" y="285" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Conv1d(3, 64, kernel=3)</text>
+  
+  <rect x="50" y="310" width="120" height="30" rx="8" ry="8" fill="#90ee90" stroke="#006400" stroke-width="2"/>
+  <text x="110" y="330" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">BatchNorm1d(64)</text>
+  
+  <rect x="50" y="350" width="120" height="30" rx="8" ry="8" fill="#add8e6" stroke="#4682b4" stroke-width="2"/>
+  <text x="110" y="370" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">ReLU</text>
+  
+  <rect x="50" y="390" width="120" height="30" rx="8" ry="8" fill="#ffb6c1" stroke="#c71585" stroke-width="2"/>
+  <text x="110" y="410" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">MaxPool1d(2)</text>
+  
+  <!-- Conv Block 2 -->
+  <rect x="230" y="260" width="120" height="40" rx="8" ry="8" fill="#ffd700" stroke="#cc9900" stroke-width="2"/>
+  <text x="290" y="285" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Conv1d(64, 128, kernel=5)</text>
+  
+  <rect x="230" y="310" width="120" height="30" rx="8" ry="8" fill="#90ee90" stroke="#006400" stroke-width="2"/>
+  <text x="290" y="330" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">BatchNorm1d(128)</text>
+  
+  <rect x="230" y="350" width="120" height="30" rx="8" ry="8" fill="#add8e6" stroke="#4682b4" stroke-width="2"/>
+  <text x="290" y="370" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">ReLU</text>
+  
+  <rect x="230" y="390" width="120" height="30" rx="8" ry="8" fill="#ffb6c1" stroke="#c71585" stroke-width="2"/>
+  <text x="290" y="410" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">MaxPool1d(2)</text>
+  
+  <!-- Conv Block 3 -->
+  <rect x="410" y="260" width="120" height="40" rx="8" ry="8" fill="#ffd700" stroke="#cc9900" stroke-width="2"/>
+  <text x="470" y="285" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Conv1d(128, 256, kernel=7)</text>
+  
+  <rect x="410" y="310" width="120" height="30" rx="8" ry="8" fill="#90ee90" stroke="#006400" stroke-width="2"/>
+  <text x="470" y="330" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">BatchNorm1d(256)</text>
+  
+  <rect x="410" y="350" width="120" height="30" rx="8" ry="8" fill="#add8e6" stroke="#4682b4" stroke-width="2"/>
+  <text x="470" y="370" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">ReLU</text>
+  
+  <rect x="410" y="390" width="120" height="30" rx="8" ry="8" fill="#ffb6c1" stroke="#c71585" stroke-width="2"/>
+  <text x="470" y="410" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">MaxPool1d(2)</text>
+  
+  <!-- Global Pooling -->
+  <rect x="590" y="260" width="120" height="40" rx="8" ry="8" fill="#ffb6c1" stroke="#c71585" stroke-width="2"/>
+  <text x="650" y="285" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">AdaptiveAvgPool1d(1)</text>
+  
+  <rect x="590" y="310" width="120" height="30" rx="8" ry="8" fill="#e6e6e6" stroke="#666666" stroke-width="2"/>
+  <text x="650" y="330" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">View(-1, 256)</text>
+  
+  <!-- FC Layers -->
+  <rect x="590" y="350" width="120" height="30" rx="8" ry="8" fill="#d8bfd8" stroke="#8a2be2" stroke-width="2"/>
+  <text x="650" y="370" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Linear(256, 128)</text>
+  
+  <rect x="590" y="390" width="120" height="30" rx="8" ry="8" fill="#add8e6" stroke="#4682b4" stroke-width="2"/>
+  <text x="650" y="410" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">ReLU</text>
+  
+  <rect x="590" y="430" width="120" height="30" rx="8" ry="8" fill="#e6e6e6" stroke="#666666" stroke-width="2"/>
+  <text x="650" y="450" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Dropout(0.3)</text>
+  
+  <rect x="590" y="470" width="120" height="30" rx="8" ry="8" fill="#d8bfd8" stroke="#8a2be2" stroke-width="2"/>
+  <text x="650" y="490" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Linear(128, 64)</text>
+  
+  <rect x="590" y="510" width="120" height="30" rx="8" ry="8" fill="#add8e6" stroke="#4682b4" stroke-width="2"/>
+  <text x="650" y="530" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">ReLU</text>
+  
+  <rect x="590" y="550" width="120" height="30" rx="8" ry="8" fill="#e6e6e6" stroke="#666666" stroke-width="2"/>
+  <text x="650" y="570" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Dropout(0.3)</text>
+  
+  <!-- Output Layer -->
+  <rect x="590" y="590" width="120" height="40" rx="8" ry="8" fill="#ff9999" stroke="#cc0000" stroke-width="2"/>
+  <text x="650" y="610" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="#333">输出层</text>
+  <text x="650" y="625" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Linear(64, num_classes)</text>
+  
+  <!-- Connections -->
+  <!-- Input to Permute -->
+  <line x1="110" y1="180" x2="110" y2="200" stroke="#666" stroke-width="2"/>
+  <polygon points="105,195 110,205 115,195" fill="#666"/>
+  
+  <!-- Permute to Conv1 -->
+  <line x1="110" y1="240" x2="110" y2="260" stroke="#666" stroke-width="2"/>
+  <polygon points="105,255 110,265 115,255" fill="#666"/>
+  
+  <!-- Vertical Connections for Conv Block 1 -->
+  <line x1="110" y1="300" x2="110" y2="310" stroke="#666" stroke-width="2"/>
+  <polygon points="105,305 110,315 115,305" fill="#666"/>
+  
+  <line x1="110" y1="340" x2="110" y2="350" stroke="#666" stroke-width="2"/>
+  <polygon points="105,345 110,355 115,345" fill="#666"/>
+  
+  <line x1="110" y1="380" x2="110" y2="390" stroke="#666" stroke-width="2"/>
+  <polygon points="105,385 110,395 115,385" fill="#666"/>
+  
+  <!-- Conv1 to Conv2 -->
+  <line x1="170" y1="280" x2="230" y2="280" stroke="#666" stroke-width="2"/>
+  <polygon points="225,275 230,285 235,275" fill="#666"/>
+  <line x1="170" y1="405" x2="200" y2="405" stroke="#666" stroke-width="2"/>
+  <line x1="200" y1="405" x2="200" y2="280" stroke="#666" stroke-width="2"/>
+  <line x1="200" y1="280" x2="230" y2="280" stroke="#666" stroke-width="2"/>
+  
+  <!-- Vertical Connections for Conv Block 2 -->
+  <line x1="290" y1="300" x2="290" y2="310" stroke="#666" stroke-width="2"/>
+  <polygon points="285,305 290,315 295,305" fill="#666"/>
+  
+  <line x1="290" y1="340" x2="290" y2="350" stroke="#666" stroke-width="2"/>
+  <polygon points="285,345 290,355 295,345" fill="#666"/>
+  
+  <line x1="290" y1="380" x2="290" y2="390" stroke="#666" stroke-width="2"/>
+  <polygon points="285,385 290,395 295,385" fill="#666"/>
+  
+  <!-- Conv2 to Conv3 -->
+  <line x1="350" y1="280" x2="410" y2="280" stroke="#666" stroke-width="2"/>
+  <polygon points="405,275 410,285 415,275" fill="#666"/>
+  <line x1="350" y1="405" x2="380" y2="405" stroke="#666" stroke-width="2"/>
+  <line x1="380" y1="405" x2="380" y2="280" stroke="#666" stroke-width="2"/>
+  <line x1="380" y1="280" x2="410" y2="280" stroke="#666" stroke-width="2"/>
+  
+  <!-- Vertical Connections for Conv Block 3 -->
+  <line x1="470" y1="300" x2="470" y2="310" stroke="#666" stroke-width="2"/>
+  <polygon points="465,305 470,315 475,305" fill="#666"/>
+  
+  <line x1="470" y1="340" x2="470" y2="350" stroke="#666" stroke-width="2"/>
+  <polygon points="465,345 470,355 475,345" fill="#666"/>
+  
+  <line x1="470" y1="380" x2="470" y2="390" stroke="#666" stroke-width="2"/>
+  <polygon points="465,385 470,395 475,385" fill="#666"/>
+  
+  <!-- Conv3 to Global Pooling -->
+  <line x1="530" y1="280" x2="590" y2="280" stroke="#666" stroke-width="2"/>
+  <polygon points="585,275 590,285 595,275" fill="#666"/>
+  <line x1="530" y1="405" x2="560" y2="405" stroke="#666" stroke-width="2"/>
+  <line x1="560" y1="405" x2="560" y2="280" stroke="#666" stroke-width="2"/>
+  <line x1="560" y1="280" x2="590" y2="280" stroke="#666" stroke-width="2"/>
+  
+  <!-- Global Pooling to View -->
+  <line x1="650" y1="300" x2="650" y2="310" stroke="#666" stroke-width="2"/>
+  <polygon points="645,305 650,315 655,305" fill="#666"/>
+  
+  <!-- View to FC -->
+  <line x1="650" y1="340" x2="650" y2="350" stroke="#666" stroke-width="2"/>
+  <polygon points="645,345 650,355 655,345" fill="#666"/>
+  
+  <!-- FC Connections -->
+  <line x1="650" y1="380" x2="650" y2="390" stroke="#666" stroke-width="2"/>
+  <polygon points="645,385 650,395 655,385" fill="#666"/>
+  
+  <line x1="650" y1="420" x2="650" y2="430" stroke="#666" stroke-width="2"/>
+  <polygon points="645,425 650,435 655,425" fill="#666"/>
+  
+  <line x1="650" y1="460" x2="650" y2="470" stroke="#666" stroke-width="2"/>
+  <polygon points="645,465 650,475 655,465" fill="#666"/>
+  
+  <line x1="650" y1="500" x2="650" y2="510" stroke="#666" stroke-width="2"/>
+  <polygon points="645,505 650,515 655,505" fill="#666"/>
+  
+  <line x1="650" y1="540" x2="650" y2="550" stroke="#666" stroke-width="2"/>
+  <polygon points="645,545 650,555 655,545" fill="#666"/>
+  
+  <line x1="650" y1="580" x2="650" y2="590" stroke="#666" stroke-width="2"/>
+  <polygon points="645,585 650,595 655,585" fill="#666"/>
+  
+  <!-- Additional legend for ReLU -->
+  <rect x="50" y="70" width="20" height="20" fill="#add8e6" stroke="#4682b4" stroke-width="2"/>
+  <text x="75" y="85" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">ReLU</text>
+  
+  <!-- Special Features Box -->
+  <rect x="50" y="450" width="450" height="120" rx="8" ry="8" fill="#f0f0f0" stroke="#888" stroke-width="2"/>
+  <text x="70" y="475" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#333">模型特性:</text>
+  <text x="70" y="500" font-family="Arial, sans-serif" font-size="14" fill="#333">• 支持原始振动信号输入 (batch_size, seq_length, input_channels)</text>
+  <text x="70" y="525" font-family="Arial, sans-serif" font-size="14" fill="#333">• 三层卷积块，每层包含卷积、批量归一化、ReLU激活和池化</text>
+  <text x="70" y="550" font-family="Arial, sans-serif" font-size="14" fill="#333">• 全局池化后接三层全连接层</text>
+  <text x="70" y="575" font-family="Arial, sans-serif" font-size="14" fill="#333">• 提供 get_latent() 方法获取特征嵌入表示</text>
+</svg>

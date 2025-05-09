@@ -24,6 +24,7 @@ from cnn_attention import CNNClassifier  # 带注意力机制的CNN
 from cnn_model import SimpleCNNClassifier  # 不带注意力机制的简单CNN
 from svm_model import SVMClassifier  # 支持向量机分类器
 from pytorch_cnn_bigru_attention import CNNBiGRU_Attention
+from pytorch_cnn_bilstm import CNNLSTM_NoAttention
 from informer_models import (
     DirectInformerClassifier, LightCNNInformerClassifier,
     FeatureInformerClassifier, CNNInformerAttention
@@ -53,7 +54,7 @@ def parse_arguments():
 
     # 模型相关参数
     parser.add_argument('--model_type', type=str,
-                        choices=['cnn_lstm_attention', 'cnn_bigru_attention',
+                        choices=['cnn_bilstm_attention', 'cnn_bilstm', 'cnn_bigru_attention',
                                  'cnn_attention', 'cnn_model', 'mlp', 'svm',
                                  'direct_informer', 'light_cnn_informer', 'feature_informer',  # 添加新的模型类型
                                  'cnn_informer_attention'],
@@ -172,7 +173,7 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 depth=args.informer_depth,
                 factor=args.informer_factor,
                 dropout_rate=args.dropout
-            )    
+            )
         elif model_type == 'mlp':
             model = MLPClassifier(
                 input_dim=input_dim,
@@ -233,7 +234,7 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 informer_factor=args.informer_factor,
                 dropout_rate=args.dropout
             )
-        elif model_type == 'cnn_lstm_attention':
+        elif model_type == 'cnn_bilstm_attention':
             model = CNNLSTM_Attention(
                 input_channels=input_channels,
                 seq_length=seq_length,
@@ -242,6 +243,17 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 kernel_size=args.kernel_size,
                 lstm_hidden=args.lstm_hidden,
                 dropout_rate=args.dropout
+            )
+        elif model_type == 'cnn_bilstm':
+            model = CNNLSTM_NoAttention(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                filters=args.filters,
+                kernel_size=args.kernel_size,
+                lstm_hidden=args.lstm_hidden,
+                dropout_rate=args.dropout,
+                pooling_type='mean'  # 或者 'last'
             )
         elif model_type == 'cnn_bigru_attention':
             model = CNNBiGRU_Attention(

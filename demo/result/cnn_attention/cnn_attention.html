@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 800 700" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="800" height="700" fill="#f8f9fa" rx="10" ry="10"/>
+  
+  <!-- Title -->
+  <text x="400" y="40" font-family="Arial, sans-serif" font-size="24" font-weight="bold" text-anchor="middle" fill="#333">CNNClassifier 结构图</text>
+  
+  <!-- Legend - Horizontal layout -->
+  <rect x="50" y="70" width="16" height="16" fill="#6ab7ff" stroke="#0066cc" stroke-width="2"/>
+  <text x="70" y="83" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">输入层</text>
+  
+  <rect x="140" y="70" width="16" height="16" fill="#ffd700" stroke="#cc9900" stroke-width="2"/>
+  <text x="160" y="83" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">卷积层</text>
+  
+  <rect x="220" y="70" width="16" height="16" fill="#90ee90" stroke="#006400" stroke-width="2"/>
+  <text x="240" y="83" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">批量归一化</text>
+  
+  <rect x="320" y="70" width="16" height="16" fill="#add8e6" stroke="#4682b4" stroke-width="2"/>
+  <text x="340" y="83" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">ReLU</text>
+  
+  <rect x="380" y="70" width="16" height="16" fill="#ffb6c1" stroke="#c71585" stroke-width="2"/>
+  <text x="400" y="83" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">池化层</text>
+  
+  <rect x="455" y="70" width="16" height="16" fill="#ffa07a" stroke="#ff4500" stroke-width="2"/>
+  <text x="475" y="83" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">注意力模块</text>
+  
+  <rect x="550" y="70" width="16" height="16" fill="#d8bfd8" stroke="#8a2be2" stroke-width="2"/>
+  <text x="570" y="83" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">全连接层</text>
+  
+  <rect x="640" y="70" width="16" height="16" fill="#ff9999" stroke="#cc0000" stroke-width="2"/>
+  <text x="660" y="83" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="start">输出层</text>
+  
+  <!-- Input Layer -->
+  <rect x="50" y="120" width="140" height="60" rx="8" ry="8" fill="#6ab7ff" stroke="#0066cc" stroke-width="2"/>
+  <text x="120" y="150" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="#333">输入层</text>
+  <text x="120" y="170" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">(batch_size, seq_length, input_channels)</text>
+  
+  <!-- Permute Operation -->
+  <rect x="50" y="200" width="140" height="40" rx="8" ry="8" fill="#e6e6e6" stroke="#666666" stroke-width="2"/>
+  <text x="120" y="225" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Permute(0, 2, 1)</text>
+  
+  <!-- CNN Block 1 -->
+  <rect x="250" y="120" width="160" height="40" rx="8" ry="8" fill="#ffd700" stroke="#cc9900" stroke-width="2"/>
+  <text x="330" y="145" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Conv1d(input_channels, base_filters, kernel_size=3)</text>
+  
+  <rect x="250" y="170" width="160" height="30" rx="8" ry="8" fill="#90ee90" stroke="#006400" stroke-width="2"/>
+  <text x="330" y="190" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">BatchNorm1d(base_filters)</text>
+  
+  <rect x="250" y="210" width="160" height="30" rx="8" ry="8" fill="#add8e6" stroke="#4682b4" stroke-width="2"/>
+  <text x="330" y="230" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">ReLU</text>
+  
+  <rect x="250" y="250" width="160" height="30" rx="8" ry="8" fill="#ffb6c1" stroke="#c71585" stroke-width="2"/>
+  <text x="330" y="270" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">MaxPool1d(2)</text>
+  
+  <!-- CNN Block 2 -->
+  <rect x="250" y="290" width="160" height="40" rx="8" ry="8" fill="#ffd700" stroke="#cc9900" stroke-width="2"/>
+  <text x="330" y="315" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Conv1d(base_filters, base_filters*2, kernel_size=5)</text>
+  
+  <rect x="250" y="340" width="160" height="30" rx="8" ry="8" fill="#90ee90" stroke="#006400" stroke-width="2"/>
+  <text x="330" y="360" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">BatchNorm1d(base_filters*2)</text>
+  
+  <rect x="250" y="380" width="160" height="30" rx="8" ry="8" fill="#add8e6" stroke="#4682b4" stroke-width="2"/>
+  <text x="330" y="400" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">ReLU</text>
+  
+  <rect x="250" y="420" width="160" height="30" rx="8" ry="8" fill="#ffb6c1" stroke="#c71585" stroke-width="2"/>
+  <text x="330" y="440" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">MaxPool1d(2)</text>
+  
+  <!-- CNN Block 3 -->
+  <rect x="250" y="460" width="160" height="40" rx="8" ry="8" fill="#ffd700" stroke="#cc9900" stroke-width="2"/>
+  <text x="330" y="485" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Conv1d(base_filters*2, base_filters*4, kernel_size=7)</text>
+  
+  <rect x="250" y="510" width="160" height="30" rx="8" ry="8" fill="#90ee90" stroke="#006400" stroke-width="2"/>
+  <text x="330" y="530" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">BatchNorm1d(base_filters*4)</text>
+  
+  <rect x="250" y="550" width="160" height="30" rx="8" ry="8" fill="#add8e6" stroke="#4682b4" stroke-width="2"/>
+  <text x="330" y="570" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">ReLU</text>
+  
+  <rect x="250" y="590" width="160" height="30" rx="8" ry="8" fill="#ffb6c1" stroke="#c71585" stroke-width="2"/>
+  <text x="330" y="610" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">MaxPool1d(2)</text>
+  
+  <!-- Attention Module -->
+  <rect x="480" y="280" width="160" height="90" rx="8" ry="8" fill="#ffa07a" stroke="#ff4500" stroke-width="2"/>
+  <text x="560" y="305" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="#333">注意力模块</text>
+  <text x="560" y="330" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Conv1d(base_filters*4, 1, kernel_size=1)</text>
+  <text x="560" y="350" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Sigmoid</text>
+  
+  <!-- Attention Application -->
+  <rect x="480" y="380" width="160" height="40" rx="8" ry="8" fill="#e6e6e6" stroke="#666666" stroke-width="2"/>
+  <text x="560" y="405" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">特征 * 注意力权重</text>
+  
+  <!-- Global Pooling -->
+  <rect x="480" y="430" width="160" height="40" rx="8" ry="8" fill="#ffb6c1" stroke="#c71585" stroke-width="2"/>
+  <text x="560" y="455" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">AdaptiveAvgPool1d(1)</text>
+  
+  <rect x="480" y="480" width="160" height="30" rx="8" ry="8" fill="#e6e6e6" stroke="#666666" stroke-width="2"/>
+  <text x="560" y="500" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">View(-1, base_filters*4)</text>
+  
+  <!-- FC Layers -->
+  <rect x="480" y="520" width="160" height="30" rx="8" ry="8" fill="#d8bfd8" stroke="#8a2be2" stroke-width="2"/>
+  <text x="560" y="540" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Linear(base_filters*4, 128)</text>
+  
+  <rect x="480" y="560" width="160" height="30" rx="8" ry="8" fill="#add8e6" stroke="#4682b4" stroke-width="2"/>
+  <text x="560" y="580" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">ReLU</text>
+  
+  <rect x="480" y="600" width="160" height="30" rx="8" ry="8" fill="#e6e6e6" stroke="#666666" stroke-width="2"/>
+  <text x="560" y="620" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Dropout(dropout_rate)</text>
+  
+  <rect x="660" y="520" width="120" height="30" rx="8" ry="8" fill="#d8bfd8" stroke="#8a2be2" stroke-width="2"/>
+  <text x="720" y="540" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Linear(128, 64)</text>
+  
+  <rect x="660" y="560" width="120" height="30" rx="8" ry="8" fill="#add8e6" stroke="#4682b4" stroke-width="2"/>
+  <text x="720" y="580" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">ReLU</text>
+  
+  <rect x="660" y="600" width="120" height="30" rx="8" ry="8" fill="#e6e6e6" stroke="#666666" stroke-width="2"/>
+  <text x="720" y="620" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Dropout(dropout_rate)</text>
+  
+  <!-- Output Layer -->
+  <rect x="660" y="640" width="120" height="40" rx="8" ry="8" fill="#ff9999" stroke="#cc0000" stroke-width="2"/>
+  <text x="720" y="660" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="#333">输出层</text>
+  <text x="720" y="675" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#333">Linear(64, num_classes)</text>
+  
+  <!-- Attention Output -->
+  <rect x="530" y="180" width="230" height="40" rx="8" ry="8" fill="#e6e6e6" stroke="#ff4500" stroke-width="2" stroke-dasharray="5,5"/>
+  <text x="645" y="200" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="#ff4500">注意力权重上采样</text>
+  <text x="645" y="215" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#ff4500">F.interpolate(..., size=seq_length)</text>
+
+  <!-- Connections -->
+  <!-- Input to Permute -->
+  <line x1="120" y1="180" x2="120" y2="200" stroke="#666" stroke-width="2"/>
+  <polygon points="115,195 120,205 125,195" fill="#666"/>
+  
+  <!-- Permute to Conv1 -->
+  <line x1="190" y1="220" x2="230" y2="220" stroke="#666" stroke-width="2"/>
+  <line x1="230" y1="220" x2="230" y2="140" stroke="#666" stroke-width="2"/>
+  <line x1="230" y1="140" x2="250" y2="140" stroke="#666" stroke-width="2"/>
+  <polygon points="245,135 250,145 255,135" fill="#666"/>
+  
+  <!-- CNN Block 1 Connections -->
+  <line x1="330" y1="160" x2="330" y2="170" stroke="#666" stroke-width="2"/>
+  <polygon points="325,165 330,175 335,165" fill="#666"/>
+  
+  <line x1="330" y1="200" x2="330" y2="210" stroke="#666" stroke-width="2"/>
+  <polygon points="325,205 330,215 335,205" fill="#666"/>
+  
+  <line x1="330" y1="240" x2="330" y2="250" stroke="#666" stroke-width="2"/>
+  <polygon points="325,245 330,255 335,245" fill="#666"/>
+  
+  <!-- Pool1 to Conv2 -->
+  <line x1="330" y1="280" x2="330" y2="290" stroke="#666" stroke-width="2"/>
+  <polygon points="325,285 330,295 335,285" fill="#666"/>
+  
+  <!-- CNN Block 2 Connections -->
+  <line x1="330" y1="330" x2="330" y2="340" stroke="#666" stroke-width="2"/>
+  <polygon points="325,335 330,345 335,335" fill="#666"/>
+  
+  <line x1="330" y1="370" x2="330" y2="380" stroke="#666" stroke-width="2"/>
+  <polygon points="325,375 330,385 335,375" fill="#666"/>
+  
+  <line x1="330" y1="410" x2="330" y2="420" stroke="#666" stroke-width="2"/>
+  <polygon points="325,415 330,425 335,415" fill="#666"/>
+  
+  <!-- Pool2 to Conv3 -->
+  <line x1="330" y1="450" x2="330" y2="460" stroke="#666" stroke-width="2"/>
+  <polygon points="325,455 330,465 335,455" fill="#666"/>
+  
+  <!-- CNN Block 3 Connections -->
+  <line x1="330" y1="500" x2="330" y2="510" stroke="#666" stroke-width="2"/>
+  <polygon points="325,505 330,515 335,505" fill="#666"/>
+  
+  <line x1="330" y1="540" x2="330" y2="550" stroke="#666" stroke-width="2"/>
+  <polygon points="325,545 330,555 335,545" fill="#666"/>
+  
+  <line x1="330" y1="580" x2="330" y2="590" stroke="#666" stroke-width="2"/>
+  <polygon points="325,585 330,595 335,585" fill="#666"/>
+  
+  <!-- CNN3 to Attention Module -->
+  <line x1="410" y1="480" x2="440" y2="480" stroke="#666" stroke-width="2"/>
+  <line x1="440" y1="480" x2="440" y2="325" stroke="#666" stroke-width="2"/>
+  <line x1="440" y1="325" x2="480" y2="325" stroke="#666" stroke-width="2"/>
+  <polygon points="475,320 480,330 485,320" fill="#666"/>
+  
+  <!-- Attention Module Output to Attention Output -->
+  <line x1="560" y1="280" x2="560" y2="240" stroke="#ff4500" stroke-width="2" stroke-dasharray="5,5"/>
+  <line x1="560" y1="240" x2="580" y2="240" stroke="#ff4500" stroke-width="2" stroke-dasharray="5,5"/>
+  <line x1="580" y1="240" x2="580" y2="200" stroke="#ff4500" stroke-width="2" stroke-dasharray="5,5"/>
+  <line x1="580" y1="200" x2="530" y2="200" stroke="#ff4500" stroke-width="2" stroke-dasharray="5,5"/>
+  <text x="470" y="200" font-family="Arial, sans-serif" font-size="12" fill="#ff4500" text-anchor="end">注意力权重输出</text>
+
+  <!-- CNN3 to Feature Multiplication -->
+  <line x1="410" y1="520" x2="430" y2="520" stroke="#666" stroke-width="2"/>
+  <line x1="430" y1="520" x2="430" y2="400" stroke="#666" stroke-width="2"/>
+  <line x1="430" y1="400" x2="480" y2="400" stroke="#666" stroke-width="2"/>
+  <polygon points="475,395 480,405 485,395" fill="#666"/>
+  
+  <!-- Attention Module to Feature Multiplication -->
+  <line x1="560" y1="370" x2="560" y2="380" stroke="#666" stroke-width="2"/>
+  <polygon points="555,375 560,385 565,375" fill="#666"/>
+  
+  <!-- Feature Multiplication to Global Pooling -->
+  <line x1="560" y1="420" x2="560" y2="430" stroke="#666" stroke-width="2"/>
+  <polygon points="555,425 560,435 565,425" fill="#666"/>
+  
+  <!-- Global Pooling to View -->
+  <line x1="560" y1="470" x2="560" y2="480" stroke="#666" stroke-width="2"/>
+  <polygon points="555,475 560,485 565,475" fill="#666"/>
+  
+  <!-- View to FC1 -->
+  <line x1="560" y1="510" x2="560" y2="520" stroke="#666" stroke-width="2"/>
+  <polygon points="555,515 560,525 565,515" fill="#666"/>
+  
+  <!-- FC1 to ReLU -->
+  <line x1="560" y1="550" x2="560" y2="560" stroke="#666" stroke-width="2"/>
+  <polygon points="555,555 560,565 565,555" fill="#666"/>
+  
+  <!-- ReLU to Dropout -->
+  <line x1="560" y1="590" x2="560" y2="600" stroke="#666" stroke-width="2"/>
+  <polygon points="555,595 560,605 565,595" fill="#666"/>
+  
+  <!-- Dropout to FC2 -->
+  <line x1="640" y1="615" x2="650" y2="615" stroke="#666" stroke-width="2"/>
+  <line x1="650" y1="615" x2="650" y2="535" stroke="#666" stroke-width="2"/>
+  <line x1="650" y1="535" x2="660" y2="535" stroke="#666" stroke-width="2"/>
+  <polygon points="655,530 660,540 665,530" fill="#666"/>
+  
+  <!-- FC2 to ReLU -->
+  <line x1="720" y1="550" x2="720" y2="560" stroke="#666" stroke-width="2"/>
+  <polygon points="715,555 720,565 725,555" fill="#666"/>
+  
+  <!-- ReLU to Dropout -->
+  <line x1="720" y1="590" x2="720" y2="600" stroke="#666" stroke-width="2"/>
+  <polygon points="715,595 720,605 725,595" fill="#666"/>
+  
+  <!-- Dropout to Output -->
+  <line x1="720" y1="630" x2="720" y2="640" stroke="#666" stroke-width="2"/>
+  <polygon points="715,635 720,645 725,635" fill="#666"/>
+  
+  <!-- Special Features Box -->
+  <rect x="60" y="650" width="580" height="40" rx="8" ry="8" fill="#f0f0f0" stroke="#888" stroke-width="2"/>
+  <text x="80" y="675" font-family="Arial, sans-serif" font-size="14" fill="#333">• 使用卷积神经网络提取特征，并通过注意力机制实现对关键特征的聚焦</text>
+</svg>
