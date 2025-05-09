@@ -29,6 +29,7 @@ from informer_models import (
     DirectInformerClassifier, LightCNNInformerClassifier,
     FeatureInformerClassifier, CNNInformerAttention
 )
+from patchtst import PatchTSTClassifier
 
 
 def parse_arguments():
@@ -56,10 +57,10 @@ def parse_arguments():
     parser.add_argument('--model_type', type=str,
                         choices=['cnn_bilstm_attention', 'cnn_bilstm', 'cnn_bigru_attention',
                                  'cnn_attention', 'cnn_model', 'mlp', 'svm',
-                                 'direct_informer', 'light_cnn_informer', 'feature_informer',  # 添加新的模型类型
-                                 'cnn_informer_attention'],
+                                 'direct_informer', 'light_cnn_informer', 'feature_informer',
+                                 'cnn_informer_attention', 'patchtst'],  # 添加patchtst选项
                         default='cnn_lstm_attention',
-                        help='模型类型：CNN-LSTM-Attention/CNN-BiGRU-Attention/CNN(带注意力)/CNN简单版/MLP/SVM/直接Informer/轻量CNN-Informer/特征-Informer/CNN-Informer-Attention')
+                        help='模型类型：CNN-LSTM-Attention/CNN-BiGRU-Attention/CNN(带注意力)/CNN简单版/MLP/SVM/直接Informer/轻量CNN-Informer/特征-Informer/CNN-Informer-Attention/PatchTST')
     parser.add_argument('--filters', type=int, default=64,
                         help='CNN滤波器数量')
     parser.add_argument('--kernel_size', type=int, default=3,
@@ -110,21 +111,34 @@ def parse_arguments():
     parser.add_argument('--predict_file', type=str,
                         help='要预测的文件路径（仅预测模式）')
 
-        # 添加注意力类型相关参数
+    # 添加注意力类型相关参数
     parser.add_argument('--attention_type', type=str,
-                       choices=['original', 'enhanced', 'multihead', 'hybrid', 'none'],
-                       default='original',
-                       help='注意力机制类型: original=原始自注意力, enhanced=增强版, multihead=多头, hybrid=混合, none=无注意力')
-    
+                        choices=['original', 'enhanced',
+                                 'multihead', 'hybrid', 'none'],
+                        default='original',
+                        help='注意力机制类型: original=原始自注意力, enhanced=增强版, multihead=多头, hybrid=混合, none=无注意力')
+
     # 注意力参数
     parser.add_argument('--attention_temperature', type=float, default=1.0,
-                       help='注意力softmax温度系数 (仅用于enhanced注意力类型)')
+                        help='注意力softmax温度系数 (仅用于enhanced注意力类型)')
     parser.add_argument('--attention_dim', type=int, default=64,
-                       help='注意力维度 (用于enhanced和hybrid注意力类型)')
+                        help='注意力维度 (用于enhanced和hybrid注意力类型)')
     parser.add_argument('--num_heads', type=int, default=4,
-                       help='注意力头数量 (仅用于multihead注意力类型)')
+                        help='注意力头数量 (仅用于multihead注意力类型)')
     parser.add_argument('--head_dim', type=int, default=0,
-                       help='每个注意力头的维度, 0表示自动计算 (仅用于multihead注意力类型)')
+                        help='每个注意力头的维度, 0表示自动计算 (仅用于multihead注意力类型)')
+
+    # 添加PatchTST特定参数
+    parser.add_argument('--patch_size', type=int, default=16,
+                        help='PatchTST的patch大小')
+    parser.add_argument('--patch_stride', type=int, default=8,
+                        help='PatchTST的patch提取步长')
+    parser.add_argument('--patchtst_d_model', type=int, default=128,
+                        help='PatchTST的模型维度')
+    parser.add_argument('--patchtst_n_heads', type=int, default=8,
+                        help='PatchTST的注意力头数')
+    parser.add_argument('--patchtst_num_layers', type=int, default=3,
+                        help='PatchTST的Transformer层数')
     
     return parser.parse_args()
 
@@ -209,8 +223,21 @@ def create_model(model_type, input_shape, num_classes, args, device):
         # 对于原始信号数据
         input_channels = input_shape[2]  # 通常是3（X, Y, Z轴）
         seq_length = input_shape[1]      # 窗口大小
+        # 添加PatchTST模型的支持
+        if model_type == 'patchtst':
+            model = PatchTSTClassifier(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                patch_size=args.patch_size,
+                stride=args.patch_stride,
+                d_model=args.patchtst_d_model,
+                n_heads=args.patchtst_n_heads,
+                num_layers=args.patchtst_num_layers,
+                dropout_rate=args.dropout
+            )
 
-        if model_type == 'direct_informer':  # 新增的直接Informer模型
+        elif model_type == 'direct_informer':  # 新增的直接Informer模型
             model = DirectInformerClassifier(
                 input_channels=input_channels,
                 seq_length=seq_length,
@@ -252,11 +279,11 @@ def create_model(model_type, input_shape, num_classes, args, device):
             )
             # 添加对enhanced版本注意力的支持
         elif model_type == 'cnn_bilstm_attention':
-        # 检查是否使用增强版注意力
+            # 检查是否使用增强版注意力
             if args.attention_type != 'original' and args.attention_type != 'none':
                 # 使用增强版注意力
                 from enhanced_cnn_bilstm_attention import CNNLSTM_EnhancedAttention
-                
+
                 # 设置注意力参数
                 attention_params = {
                     'attention_dim': args.attention_dim,
@@ -265,7 +292,7 @@ def create_model(model_type, input_shape, num_classes, args, device):
                     'head_dim': args.head_dim if args.head_dim > 0 else args.lstm_hidden // 2,
                     'dropout': args.dropout
                 }
-                
+
                 model = CNNLSTM_EnhancedAttention(
                     input_channels=input_channels,
                     seq_length=seq_length,
