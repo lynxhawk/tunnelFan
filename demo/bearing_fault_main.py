@@ -110,6 +110,22 @@ def parse_arguments():
     parser.add_argument('--predict_file', type=str,
                         help='要预测的文件路径（仅预测模式）')
 
+        # 添加注意力类型相关参数
+    parser.add_argument('--attention_type', type=str,
+                       choices=['original', 'enhanced', 'multihead', 'hybrid', 'none'],
+                       default='original',
+                       help='注意力机制类型: original=原始自注意力, enhanced=增强版, multihead=多头, hybrid=混合, none=无注意力')
+    
+    # 注意力参数
+    parser.add_argument('--attention_temperature', type=float, default=1.0,
+                       help='注意力softmax温度系数 (仅用于enhanced注意力类型)')
+    parser.add_argument('--attention_dim', type=int, default=64,
+                       help='注意力维度 (用于enhanced和hybrid注意力类型)')
+    parser.add_argument('--num_heads', type=int, default=4,
+                       help='注意力头数量 (仅用于multihead注意力类型)')
+    parser.add_argument('--head_dim', type=int, default=0,
+                       help='每个注意力头的维度, 0表示自动计算 (仅用于multihead注意力类型)')
+    
     return parser.parse_args()
 
 
@@ -234,16 +250,58 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 informer_factor=args.informer_factor,
                 dropout_rate=args.dropout
             )
+            # 添加对enhanced版本注意力的支持
         elif model_type == 'cnn_bilstm_attention':
-            model = CNNLSTM_Attention(
-                input_channels=input_channels,
-                seq_length=seq_length,
-                num_classes=num_classes,
-                filters=args.filters,
-                kernel_size=args.kernel_size,
-                lstm_hidden=args.lstm_hidden,
-                dropout_rate=args.dropout
-            )
+        # 检查是否使用增强版注意力
+            if args.attention_type != 'original' and args.attention_type != 'none':
+                # 使用增强版注意力
+                from enhanced_cnn_bilstm_attention import CNNLSTM_EnhancedAttention
+                
+                # 设置注意力参数
+                attention_params = {
+                    'attention_dim': args.attention_dim,
+                    'temperature': args.attention_temperature,
+                    'num_heads': args.num_heads,
+                    'head_dim': args.head_dim if args.head_dim > 0 else args.lstm_hidden // 2,
+                    'dropout': args.dropout
+                }
+                
+                model = CNNLSTM_EnhancedAttention(
+                    input_channels=input_channels,
+                    seq_length=seq_length,
+                    num_classes=num_classes,
+                    filters=args.filters,
+                    kernel_size=args.kernel_size,
+                    lstm_hidden=args.lstm_hidden,
+                    dropout_rate=args.dropout,
+                    attention_type=args.attention_type,
+                    attention_params=attention_params
+                )
+            elif args.attention_type == 'none':
+                # 使用无注意力版本
+                from pytorch_cnn_bilstm import CNNLSTM_NoAttention
+                model = CNNLSTM_NoAttention(
+                    input_channels=input_channels,
+                    seq_length=seq_length,
+                    num_classes=num_classes,
+                    filters=args.filters,
+                    kernel_size=args.kernel_size,
+                    lstm_hidden=args.lstm_hidden,
+                    dropout_rate=args.dropout,
+                    pooling_type='mean'  # 可以根据需要改为'last'
+                )
+            else:
+                # 使用原始自注意力
+                from pytorch_cnn_bilstm_attention import CNNLSTM_Attention
+                model = CNNLSTM_Attention(
+                    input_channels=input_channels,
+                    seq_length=seq_length,
+                    num_classes=num_classes,
+                    filters=args.filters,
+                    kernel_size=args.kernel_size,
+                    lstm_hidden=args.lstm_hidden,
+                    dropout_rate=args.dropout
+                )
         elif model_type == 'cnn_bilstm':
             model = CNNLSTM_NoAttention(
                 input_channels=input_channels,
