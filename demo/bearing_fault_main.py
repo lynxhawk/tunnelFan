@@ -29,6 +29,7 @@ from informer_models import (
     DirectInformerClassifier, LightCNNInformerClassifier,
     FeatureInformerClassifier, CNNInformerAttention, CNNInformerNoAttention
 )
+from ltsf_linear_classifier import LTSFLinearClassifier
 from patchtst import PatchTSTClassifier
 
 
@@ -58,9 +59,10 @@ def parse_arguments():
                         choices=['cnn_bilstm_attention', 'cnn_bilstm', 'cnn_bigru_attention',
                                  'cnn_attention', 'cnn_model', 'mlp', 'svm',
                                  'direct_informer', 'light_cnn_informer', 'feature_informer',
-                                 'cnn_informer_attention', 'cnn_informer_no_attention', 'patchtst'],  # 添加cnn_informer_no_attention选项
+                                 'cnn_informer_attention', 'cnn_informer_no_attention', 
+                                 'ltsf_linear', 'patchtst'],  # 添加ltsf_linear选项
                         default='cnn_lstm_attention',
-                        help='模型类型：CNN-LSTM-Attention/CNN-BiGRU-Attention/CNN(带注意力)/CNN简单版/MLP/SVM/直接Informer/轻量CNN-Informer/特征-Informer/CNN-Informer-Attention/CNN-Informer-No-Attention/PatchTST')
+                        help='模型类型：CNN-LSTM-Attention/CNN-BiGRU-Attention/CNN(带注意力)/CNN简单版/MLP/SVM/直接Informer/轻量CNN-Informer/特征-Informer/CNN-Informer-Attention/CNN-Informer-No-Attention/LTSF-Linear/PatchTST')
     parser.add_argument('--filters', type=int, default=64,
                         help='CNN滤波器数量')
     parser.add_argument('--kernel_size', type=int, default=3,
@@ -81,6 +83,15 @@ def parse_arguments():
                         help='Informer编码器的层数')
     parser.add_argument('--informer_factor', type=int, default=5,
                         help='Informer中ProbSparse注意力的因子')
+
+    # 添加LTSF-Linear特定参数
+    parser.add_argument('--ltsf_hidden_dim', type=int, default=64,
+                        help='LTSF-Linear模型的隐藏维度')
+    parser.add_argument('--ltsf_kernel_size', type=int, default=25,
+                        help='LTSF-Linear的分解核大小')
+    parser.add_argument('--ltsf_individual', action='store_true',
+                        help='LTSF-Linear是否为每个通道使用独立线性层')
+
     # 添加Pooling类型参数（用于不带注意力的模型）
     parser.add_argument('--pooling_type', type=str,
                         choices=['mean', 'max', 'last'],
@@ -255,7 +266,16 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 num_layers=args.patchtst_num_layers,
                 dropout_rate=args.dropout
             )
-
+        if model_type == 'ltsf_linear':
+            model = LTSFLinearClassifier(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                hidden_dim=args.ltsf_hidden_dim,
+                kernel_size=args.ltsf_kernel_size,
+                individual=args.ltsf_individual,
+                dropout_rate=args.dropout
+            )
         elif model_type == 'direct_informer':  # 新增的直接Informer模型
             model = DirectInformerClassifier(
                 input_channels=input_channels,
@@ -340,7 +360,6 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 )
             elif args.attention_type == 'none':
                 # 使用无注意力版本
-                from pytorch_cnn_bilstm import CNNLSTM_NoAttention
                 model = CNNLSTM_NoAttention(
                     input_channels=input_channels,
                     seq_length=seq_length,

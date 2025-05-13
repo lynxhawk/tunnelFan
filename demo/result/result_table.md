@@ -21,3 +21,4 @@ train : val : test = 0.6 : 0.2 : 0.2
 | cnn_informer  | ?  |
 | cnn_informer_attention  | 99.85%  |
 | patchtst  | 98.8%  |
+| lstf_linear | ?  |
