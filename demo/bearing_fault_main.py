@@ -27,7 +27,7 @@ from pytorch_cnn_bigru_attention import CNNBiGRU_Attention
 from pytorch_cnn_bilstm import CNNLSTM_NoAttention
 from informer_models import (
     DirectInformerClassifier, LightCNNInformerClassifier,
-    FeatureInformerClassifier, CNNInformerAttention
+    FeatureInformerClassifier, CNNInformerAttention, CNNInformerNoAttention
 )
 from patchtst import PatchTSTClassifier
 
@@ -58,9 +58,9 @@ def parse_arguments():
                         choices=['cnn_bilstm_attention', 'cnn_bilstm', 'cnn_bigru_attention',
                                  'cnn_attention', 'cnn_model', 'mlp', 'svm',
                                  'direct_informer', 'light_cnn_informer', 'feature_informer',
-                                 'cnn_informer_attention', 'patchtst'],  # 添加patchtst选项
+                                 'cnn_informer_attention', 'cnn_informer_no_attention', 'patchtst'],  # 添加cnn_informer_no_attention选项
                         default='cnn_lstm_attention',
-                        help='模型类型：CNN-LSTM-Attention/CNN-BiGRU-Attention/CNN(带注意力)/CNN简单版/MLP/SVM/直接Informer/轻量CNN-Informer/特征-Informer/CNN-Informer-Attention/PatchTST')
+                        help='模型类型：CNN-LSTM-Attention/CNN-BiGRU-Attention/CNN(带注意力)/CNN简单版/MLP/SVM/直接Informer/轻量CNN-Informer/特征-Informer/CNN-Informer-Attention/CNN-Informer-No-Attention/PatchTST')
     parser.add_argument('--filters', type=int, default=64,
                         help='CNN滤波器数量')
     parser.add_argument('--kernel_size', type=int, default=3,
@@ -81,6 +81,11 @@ def parse_arguments():
                         help='Informer编码器的层数')
     parser.add_argument('--informer_factor', type=int, default=5,
                         help='Informer中ProbSparse注意力的因子')
+    # 添加Pooling类型参数（用于不带注意力的模型）
+    parser.add_argument('--pooling_type', type=str,
+                        choices=['mean', 'max', 'last'],
+                        default='mean',
+                        help='池化类型: mean=平均池化, max=最大池化, last=最后一个时间步')
 
     # SVM特定参数
     parser.add_argument('--svm_kernel', type=str, default='rbf',
@@ -139,7 +144,7 @@ def parse_arguments():
                         help='PatchTST的注意力头数')
     parser.add_argument('--patchtst_num_layers', type=int, default=3,
                         help='PatchTST的Transformer层数')
-    
+
     return parser.parse_args()
 
 
@@ -187,7 +192,8 @@ def create_model(model_type, input_shape, num_classes, args, device):
     """
     if args.use_features:
         # 对于特征数据
-        if model_type not in ['mlp', 'svm', 'feature_informer','cnn_model']:  # 添加feature_informer
+        # 添加feature_informer
+        if model_type not in ['mlp', 'svm', 'feature_informer', 'cnn_model']:
             print(f"警告: 对于特征数据，'{model_type}'模型不适用，自动切换为'mlp'。")
             model_type = 'mlp'
 
@@ -211,7 +217,8 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 seq_length=1000,   # 这个参数在特征模式下不使用，但需要保留
                 num_classes=num_classes,
                 base_filters=args.filters,
-                kernel_sizes=[args.kernel_size, args.kernel_size+2, args.kernel_size+4],
+                kernel_sizes=[args.kernel_size,
+                              args.kernel_size+2, args.kernel_size+4],
                 dropout_rate=args.dropout,
                 use_features=True,
                 feature_input_dim=input_dim
@@ -288,6 +295,21 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 informer_depth=args.informer_depth,
                 informer_factor=args.informer_factor,
                 dropout_rate=args.dropout
+            )
+        elif model_type == 'cnn_informer_no_attention':  # 新增的无注意力CNN+Informer模型
+            model = CNNInformerNoAttention(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                filters=args.filters,
+                kernel_size=args.kernel_size,
+                informer_d_model=args.informer_d_model,
+                informer_n_heads=args.informer_n_heads,
+                informer_d_ff=args.informer_d_ff,
+                informer_depth=args.informer_depth,
+                informer_factor=args.informer_factor,
+                dropout_rate=args.dropout,
+                pooling_type=args.pooling_type
             )
             # 添加对enhanced版本注意力的支持
         elif model_type == 'cnn_bilstm_attention':

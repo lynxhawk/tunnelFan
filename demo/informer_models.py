@@ -602,3 +602,126 @@ class CNNInformerAttention(nn.Module):
         context = torch.sum(x * attention_weights, dim=1)
         
         return context  # 返回上下文向量作为潜在表示
+    
+class CNNInformerNoAttention(nn.Module):
+    """CNN + Informer模型，但不使用注意力机制，用于轴承故障诊断"""
+    def __init__(self, input_channels=3, seq_length=1000, num_classes=38, 
+                 filters=64, kernel_size=3, informer_d_model=256, 
+                 informer_n_heads=8, informer_d_ff=512, informer_depth=2,
+                 informer_factor=5, dropout_rate=0.3, pooling_type='mean'):
+        super(CNNInformerNoAttention, self).__init__()
+        
+        # 保存参数
+        self.input_channels = input_channels
+        self.seq_length = seq_length
+        self.num_classes = num_classes
+        self.informer_d_model = informer_d_model
+        self.pooling_type = pooling_type
+        
+        # CNN层 - 与原始CNN-Informer模型相同
+        self.conv1 = nn.Conv1d(input_channels, filters, kernel_size, padding=kernel_size//2)
+        self.bn1 = nn.BatchNorm1d(filters)
+        self.pool1 = nn.MaxPool1d(2)
+        
+        self.conv2 = nn.Conv1d(filters, filters*2, kernel_size, padding=kernel_size//2)
+        self.bn2 = nn.BatchNorm1d(filters*2)
+        self.pool2 = nn.MaxPool1d(2)
+        
+        self.conv3 = nn.Conv1d(filters*2, filters*4, kernel_size, padding=kernel_size//2)
+        self.bn3 = nn.BatchNorm1d(filters*4)
+        
+        # 计算CNN层后的序列长度
+        self.informer_seq_len = seq_length // 4
+        
+        # 线性层用于将CNN输出转换为Informer输入维度
+        self.cnn_to_informer = nn.Linear(filters*4, informer_d_model)
+        
+        # Informer编码器
+        self.informer_encoder = InformerEncoder(
+            d_model=informer_d_model,
+            n_heads=informer_n_heads,
+            d_ff=informer_d_ff,
+            depth=informer_depth,
+            dropout=dropout_rate,
+            factor=informer_factor
+        )
+        
+        # 替代注意力机制的全局池化层
+        if pooling_type == 'max':
+            self.global_pooling = lambda x: torch.max(x, dim=1)[0]
+        elif pooling_type == 'mean':
+            self.global_pooling = lambda x: torch.mean(x, dim=1)
+        elif pooling_type == 'last':
+            self.global_pooling = lambda x: x[:, -1, :]
+        else:
+            raise ValueError(f"不支持的池化类型: {pooling_type}")
+        
+        # 分类头
+        self.fc1 = nn.Linear(informer_d_model, 128)
+        self.dropout1 = nn.Dropout(dropout_rate)
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, num_classes)
+        
+    def forward(self, x):
+        # x shape: (batch_size, seq_length, input_channels)
+        
+        # 调整维度用于CNN
+        x = x.permute(0, 2, 1)  # (batch_size, input_channels, seq_length)
+        
+        # CNN层
+        x = F.relu(self.bn1(self.conv1(x)))
+        x = self.pool1(x)
+        
+        x = F.relu(self.bn2(self.conv2(x)))
+        x = self.pool2(x)
+        
+        x = F.relu(self.bn3(self.conv3(x)))
+        
+        # 调整维度用于Informer
+        x = x.permute(0, 2, 1)  # (batch_size, seq_length/4, filters*4)
+        
+        # 转换为Informer输入维度
+        x = self.cnn_to_informer(x)  # (batch_size, seq_length/4, informer_d_model)
+        
+        # Informer编码器
+        x, attns = self.informer_encoder(x)  # (batch_size, seq_length/4, informer_d_model)
+        
+        # 使用全局池化而不是注意力机制
+        context = self.global_pooling(x)  # (batch_size, informer_d_model)
+        
+        # 生成一个虚拟的注意力权重，用于与其他模型接口兼容
+        # 平均分配权重
+        batch_size = x.size(0)
+        seq_length = x.size(1)
+        dummy_attention = torch.ones(batch_size, seq_length, device=x.device) / seq_length
+        
+        # 分类
+        x = F.relu(self.fc1(context))
+        x = self.dropout1(x)
+        x = F.relu(self.fc2(x))
+        output = self.fc3(x)
+        
+        # 返回分类输出和虚拟注意力权重
+        return output, dummy_attention
+    
+    def get_latent(self, x):
+        """获取潜在表示用于可视化"""
+        # 处理CNN
+        x = x.permute(0, 2, 1)
+        x = F.relu(self.bn1(self.conv1(x)))
+        x = self.pool1(x)
+        x = F.relu(self.bn2(self.conv2(x)))
+        x = self.pool2(x)
+        x = F.relu(self.bn3(self.conv3(x)))
+        
+        # 转换为Informer
+        x = x.permute(0, 2, 1)
+        x = self.cnn_to_informer(x)
+        
+        # 获取Informer表示
+        x, _ = self.informer_encoder(x)
+        
+        # 使用全局池化
+        context = self.global_pooling(x)
+        
+        return context  # 返回上下文向量作为潜在表示
