@@ -187,7 +187,7 @@ def create_model(model_type, input_shape, num_classes, args, device):
     """
     if args.use_features:
         # 对于特征数据
-        if model_type not in ['mlp', 'svm', 'feature_informer']:  # 添加feature_informer
+        if model_type not in ['mlp', 'svm', 'feature_informer','cnn_model']:  # 添加feature_informer
             print(f"警告: 对于特征数据，'{model_type}'模型不适用，自动切换为'mlp'。")
             model_type = 'mlp'
 
@@ -203,6 +203,18 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 depth=args.informer_depth,
                 factor=args.informer_factor,
                 dropout_rate=args.dropout
+            )
+        elif model_type == 'cnn_model':  # 新增：支持特征模式的CNN模型
+            from cnn_model import SimpleCNNClassifier
+            model = SimpleCNNClassifier(
+                input_channels=3,  # 这个参数在特征模式下不使用，但需要保留
+                seq_length=1000,   # 这个参数在特征模式下不使用，但需要保留
+                num_classes=num_classes,
+                base_filters=args.filters,
+                kernel_sizes=[args.kernel_size, args.kernel_size+2, args.kernel_size+4],
+                dropout_rate=args.dropout,
+                use_features=True,
+                feature_input_dim=input_dim
             )
         elif model_type == 'mlp':
             model = MLPClassifier(
