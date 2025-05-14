@@ -31,6 +31,9 @@ from informer_models import (
 )
 from ltsf_linear_classifier import LTSFLinearClassifier
 from patchtst import PatchTSTClassifier
+from multiscale_feature_patchtst import MultiScaleFeaturePatchTSTClassifier
+from multi_feature_patchtst import MultiFeaturePatchTSTClassifier
+
 
 
 def parse_arguments():
@@ -60,9 +63,9 @@ def parse_arguments():
                                  'cnn_attention', 'cnn_model', 'mlp', 'svm',
                                  'direct_informer', 'light_cnn_informer', 'feature_informer',
                                  'cnn_informer_attention', 'cnn_informer_no_attention', 
-                                 'ltsf_linear', 'patchtst'],  # 添加ltsf_linear选项
+                                 'ltsf_linear', 'patchtst','multi_feature_patchtst','multiscale_feature_patchtst'],
                         default='cnn_lstm_attention',
-                        help='模型类型：CNN-LSTM-Attention/CNN-BiGRU-Attention/CNN(带注意力)/CNN简单版/MLP/SVM/直接Informer/轻量CNN-Informer/特征-Informer/CNN-Informer-Attention/CNN-Informer-No-Attention/LTSF-Linear/PatchTST')
+                        help='模型类型：CNN-LSTM-Attention/CNN-BiGRU-Attention/CNN(带注意力)/CNN简单版/MLP/SVM/直接Informer/轻量CNN-Informer/特征-Informer/CNN-Informer-Attention/CNN-Informer-No-Attention/LTSF-Linear/PatchTST/多特征PatchTST/多特征融合PatchTST/多尺度特征融合PatchTST')
     parser.add_argument('--filters', type=int, default=64,
                         help='CNN滤波器数量')
     parser.add_argument('--kernel_size', type=int, default=3,
@@ -155,6 +158,23 @@ def parse_arguments():
                         help='PatchTST的注意力头数')
     parser.add_argument('--patchtst_num_layers', type=int, default=3,
                         help='PatchTST的Transformer层数')
+    
+    # 添加多特征融合PatchTST特定参数
+    parser.add_argument('--multi_feature_patchtst', action='store_true',
+                        help='是否使用多特征融合版PatchTST模型')
+    parser.add_argument('--use_time_features', action='store_true',
+                        help='是否使用时域特征（仅用于多特征融合PatchTST）')
+    parser.add_argument('--use_fft_features', action='store_true',
+                        help='是否使用频域特征（仅用于多特征融合PatchTST）')
+    parser.add_argument('--use_wavelet_features', action='store_true',
+                        help='是否使用小波特征（仅用于多特征融合PatchTST）')
+    parser.add_argument('--sampling_rate', type=int, default=10000,
+                        help='采样率，用于特征提取')
+    
+    parser.add_argument('--multiscale_patch_sizes', type=str, default='16,32,64',
+                    help='多尺度PatchTST的patch大小列表，用逗号分隔')
+    parser.add_argument('--multiscale_strides', type=str, default='8,16,32',
+                        help='多尺度PatchTST的stride列表，用逗号分隔')
 
     return parser.parse_args()
 
@@ -175,7 +195,8 @@ def main():
         data_dir=args.data_dir,
         window_size=args.window_size,
         overlap=args.overlap,
-        sampling_rate=10000  # 假设采样率为10kHz
+        # sampling_rate=10000  # 假设采样率为10kHz
+        sampling_rate = args.sampling_rate
     )
 
     # 根据模式执行不同功能
@@ -265,7 +286,48 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 num_layers=args.patchtst_num_layers,
                 dropout_rate=args.dropout
             )
-        if model_type == 'ltsf_linear':
+        elif model_type == 'multi_feature_patchtst':
+            # 解析patch尺寸和步长
+            patch_sizes = [int(size) for size in args.patch_sizes.split(',')]
+            patch_strides = [int(stride) for stride in args.patch_strides.split(',')]
+            
+            model = MultiFeaturePatchTSTClassifier(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                patch_sizes=patch_sizes,
+                strides=patch_strides,
+                d_model=args.patchtst_d_model,
+                n_heads=args.patchtst_n_heads,
+                num_layers=args.patchtst_num_layers,
+                dropout_rate=args.dropout,
+                use_fft=args.use_fft_features,
+                use_wavelet=args.use_wavelet_features,
+                use_time_features=args.use_time_features,
+                sampling_rate=args.sampling_rate
+            )
+
+        elif model_type == 'multiscale_patchtst':
+            # 解析多尺度参数
+            patch_sizes = [int(x) for x in args.multiscale_patch_sizes.split(',')]
+            strides = [int(x) for x in args.multiscale_strides.split(',')]
+            
+            model = MultiScaleFeaturePatchTSTClassifier(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                patch_sizes=patch_sizes,
+                strides=strides,
+                d_model=args.patchtst_d_model,
+                n_heads=args.patchtst_n_heads,
+                num_layers=args.patchtst_num_layers,
+                dropout_rate=args.dropout,
+                use_fft=args.use_fft_features,
+                use_wavelet=args.use_wavelet_features,
+                use_time_features=args.use_time_features,
+                sampling_rate=args.sampling_rate
+            )
+        elif model_type == 'ltsf_linear':
             model = LTSFLinearClassifier(
                 input_channels=input_channels,
                 seq_length=seq_length,
@@ -709,6 +771,7 @@ def test_workflow(processor, args, device):
     _, _, X_test, _, _, y_test = processor.split_data(X, y)
 
     # 加载归一化参数
+
     try:
         mean = np.load('normalization_mean.npy')
         std = np.load('normalization_std.npy')
