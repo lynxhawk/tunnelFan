@@ -222,9 +222,8 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 dropout_rate=args.dropout
             )
         elif model_type == 'cnn_model':  # 新增：支持特征模式的CNN模型
-            from cnn_model import SimpleCNNClassifier
             model = SimpleCNNClassifier(
-                input_channels=3,  # 这个参数在特征模式下不使用，但需要保留
+                input_channels=3,  # 这个参数在特征模式下不使用，但需要昨天保留
                 seq_length=1000,   # 这个参数在特征模式下不使用，但需要保留
                 num_classes=num_classes,
                 base_filters=args.filters,

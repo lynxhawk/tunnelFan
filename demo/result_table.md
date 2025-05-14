@@ -7,7 +7,7 @@ train : val : test = 0.6 : 0.2 : 0.2
 | svm   | 44.08%  |
 | svm_use_features   | 98.8%  |
 | cnn   | 99.65%  |
-| cnn_use_features   | ?  |
+| cnn_use_features   | 99.05%  |
 | cnn_attention   | 94.06%  |
 | cnn_bilstm   | 99.8%  |
 | cnn_bilstm_attention   | 99.9%  |
@@ -18,7 +18,7 @@ train : val : test = 0.6 : 0.2 : 0.2
 | informer  | 3.05%  |
 | informer_use_features  | 99.1%  |
 | light_cnn_informer  | 5.34%  |
-| cnn_informer  | ?  |
+| cnn_informer  | 99.35%  |
 | cnn_informer_attention  | 99.85%  |
 | patchtst  | 98.8%  |
-| lstf_linear | ?  |
+| lstf_linear | 40.89%  |
