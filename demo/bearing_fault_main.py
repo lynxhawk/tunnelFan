@@ -67,9 +67,9 @@ def parse_arguments():
                                  'direct_informer', 'light_cnn_informer', 'feature_informer',
                                  'cnn_informer_attention', 'cnn_informer_no_attention',
                                  'ltsf_linear',
-                                 'patchtst', 'multi_feature_patchtst', 'multiscale_patchtst'
+                                 'patchtst', 'multi_feature_patchtst', 'multiscale_patchtst',
                                  'se_informer', 'se_cnn_informer', 'se_patchtst'],
-                        default='cnn_lstm_attention',
+                        default='cnn_bilstm_attention',
                         help='模型类型：CNN-BiLSTM-Attention/CNN-BiLSTM/CNN-BiGRU-Attention/'
                         'CNN(带注意力)/CNN简单版/MLP/SVM/'
                         '原生Informer/轻量CNN-Informer/手动提取特征-Informer/'
@@ -239,6 +239,8 @@ def create_model(model_type, input_shape, num_classes, args, device):
     返回:
     - 创建的模型
     """
+    print(f"Creating model of type: {model_type}")
+
     if args.use_features:
         # 对于特征数据
         # 添加feature_informer
@@ -348,17 +350,12 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 se_reduction=args.se_reduction
             )
         elif model_type == 'multi_feature_patchtst':
-            # 解析patch尺寸和步长
-            patch_sizes = [int(size) for size in args.patch_sizes.split(',')]
-            patch_strides = [int(stride)
-                             for stride in args.patch_strides.split(',')]
-
             model = MultiFeaturePatchTSTClassifier(
                 input_channels=input_channels,
                 seq_length=seq_length,
                 num_classes=num_classes,
-                patch_sizes=patch_sizes,
-                strides=patch_strides,
+                patch_size=args.patch_size,             # 使用单数形式
+                stride=args.patch_stride,               # 使用单数形式
                 d_model=args.patchtst_d_model,
                 n_heads=args.patchtst_n_heads,
                 num_layers=args.patchtst_num_layers,

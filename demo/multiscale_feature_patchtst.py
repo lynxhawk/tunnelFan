@@ -65,7 +65,7 @@ class MultiScaleFeaturePatchTST(nn.Module):
         
         if use_fft:
             # 频域特征: 每个轴7个特征，共21个特征
-            self.freq_features_proj = nn.Linear(21, d_model)
+            self.freq_features_proj = nn.Linear(18, d_model)
             
             # 额外的FFT特征提取（前100个频率分量）
             self.fft_proj = nn.Linear(100 * input_channels * 2, d_model)
@@ -194,9 +194,30 @@ class MultiScaleFeaturePatchTST(nn.Module):
         
         # 特征融合
         if len(features_list) > 0:
-            # 手工特征融合
-            fused_features = torch.cat(features_list, dim=2)
-            fused_features = self.feature_fusion(fused_features)
+            # 压平特征
+            feature_flat_list = []
+            for feat in features_list:
+                if len(feat.shape) == 3:  # [batch_size, 1, d_model]
+                    feat_flat = feat.squeeze(1)
+                else:
+                    feat_flat = feat
+                feature_flat_list.append(feat_flat)
+            
+            # 在特征维度上连接
+            fused_features = torch.cat(feature_flat_list, dim=1)
+            
+            # 完全动态调整融合层，不再使用预初始化的self.feature_fusion
+            if not hasattr(self, '_feature_fusion') or self._feature_fusion[0].in_features != fused_features.shape[1]:
+                self._feature_fusion = nn.Sequential(
+                    nn.Linear(fused_features.shape[1], self.d_model),
+                    nn.LayerNorm(self.d_model),
+                    nn.GELU(),
+                    nn.Dropout(0.1)
+                ).to(fused_features.device)
+            
+            # 应用融合
+            fused_features = self._feature_fusion(fused_features)
+            fused_features = fused_features.unsqueeze(1)
             
             # 将融合后的特征添加到序列
             combined_features = torch.cat([combined_patches, fused_features], dim=1)
@@ -294,7 +315,7 @@ class MultiScaleFeaturePatchTST(nn.Module):
             
             features.append(batch_features)
         
-        return torch.tensor(features, device=x.device)
+        return torch.tensor(features, dtype=torch.float32, device=x.device)
     
     def extract_frequency_domain_features(self, x):
         """
@@ -349,7 +370,7 @@ class MultiScaleFeaturePatchTST(nn.Module):
             
             features.append(batch_features)
         
-        return torch.tensor(features, device=x.device)
+        return torch.tensor(features, dtype=torch.float32, device=x.device)
     
     def extract_fft_features(self, x):
         """
@@ -390,7 +411,7 @@ class MultiScaleFeaturePatchTST(nn.Module):
             
             all_features.append(sample_features)
         
-        return torch.tensor(all_features, device=x.device)
+        return torch.tensor(all_features, dtype=torch.float32, device=x.device)
     
     def extract_wavelet_features(self, x, wavelet='db4', level=4):
         """
@@ -427,7 +448,7 @@ class MultiScaleFeaturePatchTST(nn.Module):
             
             features.append(batch_features)
         
-        return torch.tensor(features, device=x.device)
+        return torch.tensor(features, dtype=torch.float32, device=x.device)
     
     def _expand_attention(self, attention_weights):
         """
@@ -515,12 +536,29 @@ class MultiScaleFeaturePatchTST(nn.Module):
         combined_patches = torch.cat(patches_list, dim=1)
         
         # 特征融合
+        # get_latent 中的特征融合部分
         if len(features_list) > 0:
-            # 手工特征融合
-            fused_features = torch.cat(features_list, dim=2)
-            fused_features = self.feature_fusion(fused_features)
+            feature_flat_list = []
+            for feat in features_list:
+                if len(feat.shape) == 3:
+                    feat_flat = feat.squeeze(1)
+                else:
+                    feat_flat = feat
+                feature_flat_list.append(feat_flat)
             
-            # 将融合后的特征添加到序列
+            fused_features = torch.cat(feature_flat_list, dim=1)
+            
+            if not hasattr(self, '_feature_fusion') or self._feature_fusion[0].in_features != fused_features.shape[1]:
+                self._feature_fusion = nn.Sequential(
+                    nn.Linear(fused_features.shape[1], self.d_model),
+                    nn.LayerNorm(self.d_model),
+                    nn.GELU(),
+                    nn.Dropout(0.1)
+                ).to(fused_features.device)
+            
+            fused_features = self._feature_fusion(fused_features)
+            fused_features = fused_features.unsqueeze(1)
+            
             combined_features = torch.cat([combined_patches, fused_features], dim=1)
         else:
             combined_features = combined_patches
@@ -597,7 +635,11 @@ class MultiScaleFeaturePatchTSTClassifier(nn.Module):
         )
     
     def forward(self, x):
+        # 确保输入是float32类型
+        x = x.to(dtype=torch.float32)
         return self.model(x)
     
     def get_latent(self, x):
+        # 确保输入是float32类型
+        x = x.to(dtype=torch.float32)
         return self.model.get_latent(x)

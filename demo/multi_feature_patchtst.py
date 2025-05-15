@@ -5,58 +5,61 @@ import numpy as np
 import math
 
 
-class MultiFeaturePatchTST(nn.Module):
+class PositionalEncoding(nn.Module):
     """
-    多特征融合的PatchTST模型用于轴承故障分类
-    整合了原始信号处理、手工特征提取和多尺度patch分析
+    位置编码模块，为Transformer提供序列位置信息
     """
-    
-    def __init__(self, input_channels=3, seq_length=1000, num_classes=38,
-                 patch_sizes=[16, 32, 64], strides=[8, 16, 32], d_model=128, n_heads=8, 
-                 num_layers=3, dropout_rate=0.1, use_fft=True, use_wavelet=True, 
-                 use_time_features=True, sampling_rate=10000):
+    def __init__(self, d_model, dropout=0.1, max_len=5000):
+        super(PositionalEncoding, self).__init__()
+        self.dropout = nn.Dropout(p=dropout)
+        
+        position = torch.arange(max_len).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
+        pe = torch.zeros(max_len, d_model)
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        self.register_buffer('pe', pe)
+        
+    def forward(self, x):
         """
-        初始化多特征融合PatchTST模型
+        添加位置编码到输入张量
         
         参数:
-        - input_channels: 输入通道数（通常是3，对应X、Y、Z轴）
-        - seq_length: 序列长度（时间步数）
-        - num_classes: 分类类别数
-        - patch_sizes: 每个patch的长度列表，用于多尺度特征提取
-        - strides: patch提取的步长列表，对应每个patch_size
-        - d_model: Transformer模型的维度
-        - n_heads: 多头注意力中的头数
-        - num_layers: Transformer编码器层数
-        - dropout_rate: Dropout比率
-        - use_fft: 是否使用FFT特征
-        - use_wavelet: 是否使用小波特征
-        - use_time_features: 是否使用时域特征
-        - sampling_rate: 采样率，用于频域特征提取
-        """
-        super(MultiFeaturePatchTST, self).__init__()
+        - x: 输入张量，形状为 [batch_size, seq_length, d_model]
         
+        返回:
+        - x: 添加位置编码后的张量，形状不变
+        """
+        x = x + self.pe[:x.size(1), :]
+        return self.dropout(x)
+
+
+class MultiFeaturePatchTSTClassifier(nn.Module):
+    """
+    封装MultiFeaturePatchTST模型，提供与其他分类器兼容的接口
+    """
+    def __init__(self, input_channels=3, seq_length=1000, num_classes=38,
+                 patch_size=16, stride=8, d_model=128, n_heads=8, 
+                 num_layers=3, dropout_rate=0.1, use_fft=True, use_wavelet=True, 
+                 use_time_features=True, sampling_rate=10000):
+        super(MultiFeaturePatchTSTClassifier, self).__init__()
+        
+        # 保存参数
         self.input_channels = input_channels
         self.seq_length = seq_length
         self.d_model = d_model
-        self.patch_sizes = patch_sizes
-        self.strides = strides
+        self.patch_size = patch_size
+        self.stride = stride
         self.use_fft = use_fft
         self.use_wavelet = use_wavelet
         self.use_time_features = use_time_features
         self.sampling_rate = sampling_rate
         
-        # 计算每种尺度的patch数量
-        self.num_patches = []
-        for p_size, stride in zip(patch_sizes, strides):
-            self.num_patches.append((seq_length - p_size) // stride + 1)
-            
-        total_patches = sum(self.num_patches)
+        # 计算patch数量
+        self.num_patches = (seq_length - patch_size) // stride + 1
         
-        # 多尺度patch投影
-        self.patch_projs = nn.ModuleList([
-            nn.Linear(p_size * input_channels, d_model)
-            for p_size in patch_sizes
-        ])
+        # Patch投影层
+        self.patch_proj = nn.Linear(patch_size * input_channels, d_model)
         
         # 手工特征提取网络
         if use_time_features:
@@ -65,7 +68,7 @@ class MultiFeaturePatchTST(nn.Module):
         
         if use_fft:
             # 频域特征: 每个轴7个特征，共21个特征
-            self.freq_features_proj = nn.Linear(21, d_model)
+            self.freq_features_proj = nn.Linear(18, d_model)
             
             # 额外的FFT特征提取（前100个频率分量）
             self.fft_proj = nn.Linear(100 * input_channels * 2, d_model)
@@ -77,17 +80,18 @@ class MultiFeaturePatchTST(nn.Module):
         
         # 特征融合层
         num_feature_types = sum([1, use_time_features, 
-                                use_fft, bool(use_fft and False),  # FFT特征投影 + 原始FFT分析
+                                use_fft, bool(use_fft),  # FFT特征
                                 use_wavelet])
+        
         self.feature_fusion = nn.Sequential(
-            nn.Linear(d_model * num_feature_types, d_model),
+            nn.Linear(d_model * (num_feature_types - 1), d_model),  # 减1是因为patches不参与融合
             nn.LayerNorm(d_model),
             nn.GELU(),
             nn.Dropout(dropout_rate)
         )
             
         # 计算最大位置编码长度
-        max_patches = total_patches + num_feature_types - 1  # 减去原始patch特征，加上融合后特征
+        max_patches = self.num_patches + 1  # +1 是为融合特征保留一个位置
         
         # 位置编码
         self.pos_encoding = PositionalEncoding(d_model, dropout_rate, max_patches)
@@ -143,16 +147,12 @@ class MultiFeaturePatchTST(nn.Module):
         返回:
         - outputs: 分类输出，形状为 [batch_size, num_classes]
         - attention_weights: 注意力权重，用于可视化
-        - uncertainty: 不确定性估计（如果启用）
         """
         batch_size = x.size(0)
         
-        # 提取多尺度patches
-        patches_list = []
-        for i, (patch_size, stride, proj) in enumerate(zip(self.patch_sizes, self.strides, self.patch_projs)):
-            patches = self._extract_patches(x, patch_size, stride)
-            patches_proj = proj(patches)
-            patches_list.append(patches_proj)
+        # 提取patches
+        patches = self._extract_patches(x, self.patch_size, self.stride)
+        patches_proj = self.patch_proj(patches)
         
         # 提取手工特征
         features_list = []
@@ -186,22 +186,33 @@ class MultiFeaturePatchTST(nn.Module):
             wavelet_features_proj = wavelet_features_proj.unsqueeze(1)
             features_list.append(wavelet_features_proj)
         
-        # 首先处理原始patch特征
-        combined_patches = torch.cat(patches_list, dim=1)
-        
-        # 所有特征列表，包括原始patch和手工特征
-        all_features = [combined_patches] + features_list
-        
         # 特征融合
+        combined_features = None
         if len(features_list) > 0:
             # 手工特征融合
-            fused_features = torch.cat(features_list, dim=2)
-            fused_features = self.feature_fusion(fused_features)
+            concatenated_features = torch.cat(features_list, dim=1)
+            feature_dim = concatenated_features.shape[1]
+            concatenated_features_reshaped = concatenated_features.reshape(batch_size, -1)
+            
+            # 处理特征维度不匹配的情况
+            if concatenated_features_reshaped.shape[1] != self.d_model * (len(features_list)):
+                # 调整融合层以匹配输入维度
+                if not hasattr(self, 'adjusted_fusion') or self.adjusted_fusion.in_features != concatenated_features_reshaped.shape[1]:
+                    self.adjusted_fusion = nn.Sequential(
+                        nn.Linear(concatenated_features_reshaped.shape[1], self.d_model),
+                        nn.LayerNorm(self.d_model),
+                        nn.GELU(),
+                        nn.Dropout(0.1)
+                    ).to(x.device)
+                
+                fused_features = self.adjusted_fusion(concatenated_features_reshaped).unsqueeze(1)
+            else:
+                fused_features = self.feature_fusion(concatenated_features_reshaped).unsqueeze(1)
             
             # 将融合后的特征添加到序列
-            combined_features = torch.cat([combined_patches, fused_features], dim=1)
+            combined_features = torch.cat([patches_proj, fused_features], dim=1)
         else:
-            combined_features = combined_patches
+            combined_features = patches_proj
             
         # 添加位置编码
         pos_enc = self.pos_encoding(combined_features)
@@ -294,7 +305,8 @@ class MultiFeaturePatchTST(nn.Module):
             
             features.append(batch_features)
         
-        return torch.tensor(features, device=x.device)
+        return torch.tensor(features, dtype=torch.float32, device=x.device)
+
     
     def extract_frequency_domain_features(self, x):
         """
@@ -349,7 +361,7 @@ class MultiFeaturePatchTST(nn.Module):
             
             features.append(batch_features)
         
-        return torch.tensor(features, device=x.device)
+        return torch.tensor(features, dtype=torch.float32, device=x.device)
     
     def extract_fft_features(self, x):
         """
@@ -390,7 +402,7 @@ class MultiFeaturePatchTST(nn.Module):
             
             all_features.append(sample_features)
         
-        return torch.tensor(all_features, device=x.device)
+        return torch.tensor(all_features, dtype=torch.float32, device=x.device)
     
     def extract_wavelet_features(self, x, wavelet='db4', level=4):
         """
@@ -404,31 +416,66 @@ class MultiFeaturePatchTST(nn.Module):
         返回:
         - features: 小波特征，形状为 [batch_size, 30]（每个轴10个特征，共3个轴）
         """
-        import pywt
-        batch_size, seq_length, channels = x.shape
-        features = []
-        
-        for batch_idx in range(batch_size):
-            batch_features = []
+        try:
+            import pywt
+            batch_size, seq_length, channels = x.shape
+            features = []
             
-            for axis in range(channels):
-                axis_data = x[batch_idx, :, axis].cpu().numpy()  # 转到CPU上进行小波分解
+            for batch_idx in range(batch_size):
+                batch_features = []
                 
-                # 小波分解
-                coeffs = pywt.wavedec(axis_data, wavelet, level=level)
+                for axis in range(channels):
+                    axis_data = x[batch_idx, :, axis].cpu().numpy()  # 转到CPU上进行小波分解
+                    
+                    # 小波分解
+                    coeffs = pywt.wavedec(axis_data, wavelet, level=level)
+                    
+                    # 计算每个子带的能量
+                    energies = [np.sum(np.square(coeff)) for coeff in coeffs]
+                    
+                    # 计算每个子带的标准差
+                    stds = [np.std(coeff) for coeff in coeffs]
+                    
+                    # 添加到特征列表
+                    batch_features.extend(energies + stds)
                 
-                # 计算每个子带的能量
-                energies = [np.sum(np.square(coeff)) for coeff in coeffs]
-                
-                # 计算每个子带的标准差
-                stds = [np.std(coeff) for coeff in coeffs]
-                
-                # 添加到特征列表
-                batch_features.extend(energies + stds)
+                features.append(batch_features)
             
-            features.append(batch_features)
-        
-        return torch.tensor(features, device=x.device)
+            return torch.tensor(features, dtype=torch.float32, device=x.device)
+
+        except ImportError:
+            print("警告: 未找到PyWavelets库，使用模拟的小波特征。")
+            # 如果没有pywt，使用模拟数据
+            batch_size = x.shape[0]
+            channels = x.shape[2]
+            feature_dim = (level + 1) * 2 * channels  # level+1个子带，每个有2个特征，每个通道
+            
+            # 简单地使用基于统计的特征作为替代
+            mock_features = []
+            for batch_idx in range(batch_size):
+                batch_feature = []
+                for axis in range(channels):
+                    signal = x[batch_idx, :, axis]
+                    # 生成一些基本统计特征作为模拟的小波特征
+                    mean = torch.mean(signal)
+                    std = torch.std(signal)
+                    max_val = torch.max(signal)
+                    min_val = torch.min(signal)
+                    p2p = max_val - min_val
+                    rms = torch.sqrt(torch.mean(torch.square(signal)))
+                    
+                    # 分频段统计特征
+                    seg_len = len(signal) // (level + 1)
+                    for i in range(level + 1):
+                        start = i * seg_len
+                        end = (i + 1) * seg_len if i < level else len(signal)
+                        seg = signal[start:end]
+                        batch_feature.append(torch.mean(torch.abs(seg)))
+                        batch_feature.append(torch.std(seg))
+                
+                mock_features.append(batch_feature)
+            
+            return torch.tensor(mock_features, device=x.device)
     
     def _expand_attention(self, attention_weights):
         """
@@ -443,19 +490,15 @@ class MultiFeaturePatchTST(nn.Module):
         batch_size = attention_weights.size(0)
         expanded = torch.zeros(batch_size, self.seq_length, device=attention_weights.device)
         
-        # 跟踪当前patch索引
-        current_patch_idx = 0
+        # 只使用与patch对应的注意力权重
+        patch_attention = attention_weights[:, :self.num_patches]
         
-        # 对每种patch尺度分别处理
-        for scale_idx, (patch_size, stride, num_patches) in enumerate(zip(self.patch_sizes, self.strides, self.num_patches)):
-            for i in range(num_patches):
-                start_idx = i * stride
-                end_idx = min(start_idx + patch_size, self.seq_length)
-                # 将当前patch的注意力分配给对应的时间步
-                expanded[:, start_idx:end_idx] += attention_weights[:, current_patch_idx].unsqueeze(1)
-                current_patch_idx += 1
-        
-        # 忽略手工特征的注意力权重，因为它们不直接对应于时间步
+        # 将每个patch的注意力分配给对应的时间步
+        for i in range(self.num_patches):
+            start_idx = i * self.stride
+            end_idx = min(start_idx + self.patch_size, self.seq_length)
+            # 将当前patch的注意力分配给对应的时间步
+            expanded[:, start_idx:end_idx] += patch_attention[:, i].unsqueeze(1)
         
         # 归一化
         expanded = F.normalize(expanded, p=1, dim=1)
@@ -474,131 +517,68 @@ class MultiFeaturePatchTST(nn.Module):
         """
         batch_size = x.size(0)
         
-        # 提取多尺度patches
-        patches_list = []
-        for i, (patch_size, stride, proj) in enumerate(zip(self.patch_sizes, self.strides, self.patch_projs)):
-            patches = self._extract_patches(x, patch_size, stride)
-            patches_proj = proj(patches)
-            patches_list.append(patches_proj)
+        # 提取patches
+        patches = self._extract_patches(x, self.patch_size, self.stride)
+        patches_proj = self.patch_proj(patches)
         
-        # 提取手工特征
+        # 提取手工特征，与forward相同
         features_list = []
         
-        # 1. 时域特征
         if self.use_time_features:
             time_features = self.extract_time_domain_features(x)
             time_features_proj = self.time_features_proj(time_features)
             time_features_proj = time_features_proj.unsqueeze(1)
             features_list.append(time_features_proj)
         
-        # 2. 频域特征
         if self.use_fft:
-            # 标准频域特征
             freq_features = self.extract_frequency_domain_features(x)
             freq_features_proj = self.freq_features_proj(freq_features)
             freq_features_proj = freq_features_proj.unsqueeze(1)
             features_list.append(freq_features_proj)
             
-            # 额外的FFT频谱特征
             fft_features = self.extract_fft_features(x)
             fft_features_proj = self.fft_proj(fft_features)
             fft_features_proj = fft_features_proj.unsqueeze(1)
             features_list.append(fft_features_proj)
         
-        # 3. 小波特征
         if self.use_wavelet:
             wavelet_features = self.extract_wavelet_features(x)
             wavelet_features_proj = self.wavelet_features_proj(wavelet_features)
             wavelet_features_proj = wavelet_features_proj.unsqueeze(1)
             features_list.append(wavelet_features_proj)
         
-        # 首先处理原始patch特征
-        combined_patches = torch.cat(patches_list, dim=1)
-        
-        # 特征融合
+        # 特征融合，与forward相同
+        combined_features = None
         if len(features_list) > 0:
-            # 手工特征融合
-            fused_features = torch.cat(features_list, dim=2)
-            fused_features = self.feature_fusion(fused_features)
+            concatenated_features = torch.cat(features_list, dim=1)
+            feature_dim = concatenated_features.shape[1]
+            concatenated_features_reshaped = concatenated_features.reshape(batch_size, -1)
             
-            # 将融合后的特征添加到序列
-            combined_features = torch.cat([combined_patches, fused_features], dim=1)
+            # 处理特征维度不匹配的情况
+            if concatenated_features_reshaped.shape[1] != self.d_model * (len(features_list)):
+                if not hasattr(self, 'adjusted_fusion') or self.adjusted_fusion.in_features != concatenated_features_reshaped.shape[1]:
+                    self.adjusted_fusion = nn.Sequential(
+                        nn.Linear(concatenated_features_reshaped.shape[1], self.d_model),
+                        nn.LayerNorm(self.d_model),
+                        nn.GELU(),
+                        nn.Dropout(0.1)
+                    ).to(x.device)
+                
+                fused_features = self.adjusted_fusion(concatenated_features_reshaped).unsqueeze(1)
+            else:
+                fused_features = self.feature_fusion(concatenated_features_reshaped).unsqueeze(1)
+            
+            combined_features = torch.cat([patches_proj, fused_features], dim=1)
         else:
-            combined_features = combined_patches
-            
-        # 添加位置编码
-        pos_enc = self.pos_encoding(combined_features)
+            combined_features = patches_proj
         
-        # 残差连接和层归一化
+        # 应用位置编码和Transformer，与forward相同
+        pos_enc = self.pos_encoding(combined_features)
         x_res = pos_enc + self.res_proj(combined_features)
         x_norm = self.layer_norm1(x_res)
-        
-        # Transformer编码器
         transformer_out = self.transformer_encoder(x_norm)
         
         # 全局池化
         latent = torch.mean(transformer_out, dim=1)
         
         return latent
-
-
-class PositionalEncoding(nn.Module):
-    """
-    位置编码模块，为Transformer提供序列位置信息
-    """
-    def __init__(self, d_model, dropout=0.1, max_len=5000):
-        super(PositionalEncoding, self).__init__()
-        self.dropout = nn.Dropout(p=dropout)
-        
-        position = torch.arange(max_len).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
-        pe = torch.zeros(max_len, d_model)
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        self.register_buffer('pe', pe)
-        
-    def forward(self, x):
-        """
-        添加位置编码到输入张量
-        
-        参数:
-        - x: 输入张量，形状为 [batch_size, seq_length, d_model]
-        
-        返回:
-        - x: 添加位置编码后的张量，形状不变
-        """
-        x = x + self.pe[:x.size(1), :]
-        return self.dropout(x)
-
-
-class MultiFeaturePatchTSTClassifier(nn.Module):
-    """
-    封装MultiFeaturePatchTST模型，提供与其他分类器兼容的接口
-    """
-    def __init__(self, input_channels=3, seq_length=1000, num_classes=38,
-                 patch_sizes=[16, 32, 64], strides=[8, 16, 32], d_model=128, n_heads=8, 
-                 num_layers=3, dropout_rate=0.1, use_fft=True, use_wavelet=True, 
-                 use_time_features=True, sampling_rate=10000):
-        super(MultiFeaturePatchTSTClassifier, self).__init__()
-        
-        self.model = MultiFeaturePatchTST(
-            input_channels=input_channels,
-            seq_length=seq_length,
-            num_classes=num_classes,
-            patch_sizes=patch_sizes,
-            strides=strides,
-            d_model=d_model,
-            n_heads=n_heads,
-            num_layers=num_layers,
-            dropout_rate=dropout_rate,
-            use_fft=use_fft,
-            use_wavelet=use_wavelet,
-            use_time_features=use_time_features,
-            sampling_rate=sampling_rate
-        )
-    
-    def forward(self, x):
-        return self.model(x)
-    
-    def get_latent(self, x):
-        return self.model.get_latent(x)

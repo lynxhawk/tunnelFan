@@ -13,25 +13,48 @@ class SEBlock(nn.Module):
     def __init__(self, channel, reduction=16):
         super(SEBlock, self).__init__()
         self.avg_pool = nn.AdaptiveAvgPool1d(1)
+        self.channel = channel
+        self.reduction = reduction
+        self.fc = None
+        self._build_fc(channel)
+        
+    def _build_fc(self, channel):
+        """构建全连接层，适应输入通道数"""
         self.fc = nn.Sequential(
-            nn.Linear(channel, channel // reduction, bias=False),
+            nn.Linear(channel, max(1, channel // self.reduction), bias=False),
             nn.ReLU(inplace=True),
-            nn.Linear(channel // reduction, channel, bias=False),
+            nn.Linear(max(1, channel // self.reduction), channel, bias=False),
             nn.Sigmoid()
         )
-
+        
     def forward(self, x):
         # x: (batch_size, seq_len, channels) 或 (batch_size, channels, seq_len)
         # 根据输入形状调整操作
         if x.size(1) > x.size(2):  # (batch_size, seq_len, channels)
             x_permuted = x.permute(0, 2, 1)  # -> (batch_size, channels, seq_len)
             b, c, _ = x_permuted.size()
+            
+            # 检查通道数是否与预期不符
+            if c != self.channel:
+                print(f"通道数不匹配：预期 {self.channel}，实际 {c}，重建 fc 层")
+                self.channel = c
+                self._build_fc(c)
+                self.fc = self.fc.to(x.device)
+                
             y = self.avg_pool(x_permuted).view(b, c)
             y = self.fc(y).view(b, c, 1)
             x_scaled = x_permuted * y.expand_as(x_permuted)
             return x_scaled.permute(0, 2, 1)  # 恢复原始形状
         else:  # (batch_size, channels, seq_len)
             b, c, _ = x.size()
+            
+            # 检查通道数是否与预期不符
+            if c != self.channel:
+                print(f"通道数不匹配：预期 {self.channel}，实际 {c}，重建 fc 层")
+                self.channel = c
+                self._build_fc(c)
+                self.fc = self.fc.to(x.device)
+                
             y = self.avg_pool(x).view(b, c)
             y = self.fc(y).view(b, c, 1)
             return x * y.expand_as(x)
@@ -399,8 +422,13 @@ class SEPatchTSTClassifier(nn.Module):
         for i, encoder_layer in enumerate(self.encoder_layers):
             x = encoder_layer(x)
             if self.use_se:
-                # 在每个编码器层后应用SE块
-                x = self.se_blocks[i](x)
+                # 关键修复：在应用 SE Block 前调整维度
+                # 当前 x 的形状是 [batch_size, num_patches, d_model]
+                # 转置为 [batch_size, d_model, num_patches]
+                x_for_se = x.transpose(1, 2)
+                x_for_se = self.se_blocks[i](x_for_se)
+                # 再转置回原来的形状
+                x = x_for_se.transpose(1, 2)
         
         # 使用CLS token (第一个patch) 或全局平均池化
         # 这里选择全局平均池化
@@ -436,7 +464,13 @@ class SEPatchTSTClassifier(nn.Module):
         for i, encoder_layer in enumerate(self.encoder_layers):
             x = encoder_layer(x)
             if self.use_se:
-                x = self.se_blocks[i](x)
+                # 关键修复：在应用 SE Block 前调整维度
+                # 当前 x 的形状是 [batch_size, num_patches, d_model]
+                # 转置为 [batch_size, d_model, num_patches]
+                x_for_se = x.transpose(1, 2)
+                x_for_se = self.se_blocks[i](x_for_se)
+                # 再转置回原来的形状
+                x = x_for_se.transpose(1, 2)
         
         # 全局平均池化
         x = torch.mean(x, dim=1)  # [batch_size, d_model]

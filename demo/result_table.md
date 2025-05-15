@@ -20,10 +20,16 @@ train : val : test = 0.6 : 0.2 : 0.2
 | light_cnn_informer  | 5.34%  |
 | cnn_informer  | 99.35%  |
 | cnn_informer_attention  | 99.85%  |
-| se_informer_attention  | ?  |
-| se_cnn_informer_attention  | ?  |
+| se_informer_attention  | 3.25%  |
+| se_cnn_informer_attention  | 99.65%  |
 | patchtst  | 98.8%  |
 | se_patchtst  | ?  |
-| multi_feature_patchtst  | ?  |
-| multiscale_feature_patchtst  | ?  |
+| se_patchtst_attention  | 99.45%  |
+| se_cnn_patchtst  | ?  |
+| se_cnn_patchtst_attention  | ?  |
+| se_resnet_patchtst  | ?  |
+| se_resnet_patchtst_attention  | ?  |
+| multi_feature_patchtst  | 98.75%  |
+| multi_feature_patchtst use_fft | 98.6%  |
+| multiscale_feature_patchtst  | 98.3%  |
 | lstf_linear | 40.89%  |
