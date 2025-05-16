@@ -4,7 +4,34 @@ import torch.nn.functional as F
 import numpy as np
 import math
 
-
+class PositionalEncoding(nn.Module):
+    """
+    位置编码模块，为序列提供位置信息
+    """
+    def __init__(self, d_model, dropout=0.1, max_len=5000):
+        super(PositionalEncoding, self).__init__()
+        self.dropout = nn.Dropout(p=dropout)
+        
+        position = torch.arange(max_len).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
+        pe = torch.zeros(max_len, d_model)
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        self.register_buffer('pe', pe)
+        
+    def forward(self, x):
+        """
+        添加位置编码到输入张量
+        
+        参数:
+        - x: 输入张量，形状为 [batch_size, seq_length, d_model]
+        
+        返回:
+        - x: 添加位置编码后的张量，形状不变
+        """
+        x = x + self.pe[:x.size(1), :]
+        return self.dropout(x)
+    
 class PatchTST(nn.Module):
     """
     PatchTST模型用于轴承故障分类
