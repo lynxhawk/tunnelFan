@@ -479,3 +479,153 @@ class SEPatchTSTClassifier(nn.Module):
         x = F.relu(self.fc1(x))
         
         return x  # 返回第一个全连接层的输出作为潜在表示
+
+class SEPatchTSTNoAttentionClassifier(nn.Module):
+    """
+    添加SE Block的PatchTST分类器（无注意力版本）
+    使用池化操作代替注意力机制
+    """
+    def __init__(self, input_channels=3, seq_length=1000, num_classes=38,
+                 patch_size=16, stride=8, d_model=128, num_layers=3,
+                 dropout_rate=0.3, use_se=True, se_reduction=16, pooling_type='mean'):
+        super(SEPatchTSTNoAttentionClassifier, self).__init__()
+        
+        # 保存参数
+        self.input_channels = input_channels
+        self.seq_length = seq_length
+        self.num_classes = num_classes
+        self.patch_size = patch_size
+        self.stride = stride
+        self.d_model = d_model
+        self.use_se = use_se
+        self.pooling_type = pooling_type
+        
+        # 计算patch数量
+        self.num_patches = (seq_length - patch_size) // stride + 1
+        
+        # Patch嵌入
+        self.patch_embedding = nn.Conv1d(
+            in_channels=input_channels,
+            out_channels=d_model,
+            kernel_size=patch_size,
+            stride=stride
+        )
+        
+        # 位置编码
+        self.positional_encoding = nn.Parameter(
+            torch.zeros(1, self.num_patches, d_model)
+        )
+        nn.init.trunc_normal_(self.positional_encoding, std=0.02)
+        
+        # 特征提取层（替代Transformer的标准编码器层）
+        self.feature_layers = nn.ModuleList()
+        for _ in range(num_layers):
+            layer = nn.Sequential(
+                nn.Linear(d_model, d_model * 4),
+                nn.GELU(),
+                nn.Dropout(dropout_rate),
+                nn.Linear(d_model * 4, d_model),
+                nn.Dropout(dropout_rate)
+            )
+            self.feature_layers.append(layer)
+        
+        # SE Blocks (如果启用)
+        if self.use_se:
+            self.se_blocks = nn.ModuleList([
+                SEBlock(d_model, reduction=se_reduction) for _ in range(num_layers)
+            ])
+        
+        # 分类头
+        self.fc1 = nn.Linear(d_model, 128)
+        self.dropout = nn.Dropout(dropout_rate)
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, num_classes)
+        
+    def forward(self, x):
+        # x: [batch_size, seq_length, input_channels]
+        
+        # 调整维度用于卷积
+        x = x.permute(0, 2, 1)  # [batch_size, input_channels, seq_length]
+        
+        # 提取patches
+        x = self.patch_embedding(x)  # [batch_size, d_model, num_patches]
+        
+        # 调整维度用于特征提取
+        x = x.permute(0, 2, 1)  # [batch_size, num_patches, d_model]
+        
+        # 添加位置编码
+        x = x + self.positional_encoding
+        
+        # 应用特征提取层和SE块
+        for i, feature_layer in enumerate(self.feature_layers):
+            # 应用特征提取（使用残差连接）
+            x_res = feature_layer(x)
+            x = x + x_res
+            
+            if self.use_se:
+                # 调整维度以适应SE块
+                x_for_se = x.transpose(1, 2)  # [batch_size, d_model, num_patches]
+                x_for_se = self.se_blocks[i](x_for_se)
+                x = x_for_se.transpose(1, 2)  # [batch_size, num_patches, d_model]
+        
+        # 根据池化类型应用不同的池化策略
+        if self.pooling_type == 'mean':
+            x = torch.mean(x, dim=1)  # [batch_size, d_model]
+        elif self.pooling_type == 'max':
+            x, _ = torch.max(x, dim=1)  # [batch_size, d_model]
+        elif self.pooling_type == 'last':
+            x = x[:, -1, :]  # [batch_size, d_model]
+        else:
+            raise ValueError(f"不支持的池化类型: {self.pooling_type}")
+        
+        # 创建均匀分布的虚拟注意力权重（用于与其他模型兼容）
+        batch_size = x.size(0)
+        dummy_attention = torch.ones(batch_size, self.num_patches, device=x.device) / self.num_patches
+        
+        # 分类
+        x = F.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = F.relu(self.fc2(x))
+        output = self.fc3(x)
+        
+        # 为了与其他模型保持一致的输出格式，返回分类输出和虚拟注意力权重
+        return output, dummy_attention
+    
+    def get_latent(self, x):
+        """获取潜在表示用于可视化"""
+        # 调整维度用于卷积
+        x = x.permute(0, 2, 1)  # [batch_size, input_channels, seq_length]
+        
+        # 提取patches
+        x = self.patch_embedding(x)  # [batch_size, d_model, num_patches]
+        
+        # 调整维度用于特征提取
+        x = x.permute(0, 2, 1)  # [batch_size, num_patches, d_model]
+        
+        # 添加位置编码
+        x = x + self.positional_encoding
+        
+        # 应用特征提取层和SE块
+        for i, feature_layer in enumerate(self.feature_layers):
+            # 应用特征提取（使用残差连接）
+            x_res = feature_layer(x)
+            x = x + x_res
+            
+            if self.use_se:
+                # 调整维度以适应SE块
+                x_for_se = x.transpose(1, 2)  # [batch_size, d_model, num_patches]
+                x_for_se = self.se_blocks[i](x_for_se)
+                x = x_for_se.transpose(1, 2)  # [batch_size, num_patches, d_model]
+        
+        # 应用池化
+        if self.pooling_type == 'mean':
+            x = torch.mean(x, dim=1)  # [batch_size, d_model]
+        elif self.pooling_type == 'max':
+            x, _ = torch.max(x, dim=1)  # [batch_size, d_model]
+        elif self.pooling_type == 'last':
+            x = x[:, -1, :]  # [batch_size, d_model]
+        
+        # 返回特征表示
+        x = F.relu(self.fc1(x))
+        
+        return x

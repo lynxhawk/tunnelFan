@@ -31,12 +31,15 @@ from informer_models import (
 )
 # 导入SE Block增强的Transformer模型
 from se_block_models import (
-    SEInformerClassifier, SECNNInformerAttention, SEPatchTSTClassifier
+    SEInformerClassifier, SECNNInformerAttention, SEPatchTSTClassifier, SEPatchTSTNoAttentionClassifier
 )
 from ltsf_linear_classifier import LTSFLinearClassifier
-from patchtst import PatchTSTClassifier
+from patchtst import PatchTSTClassifier, PatchTSTNoAttentionClassifier
 from multiscale_feature_patchtst import MultiScaleFeaturePatchTSTClassifier
 from multi_feature_patchtst import MultiFeaturePatchTSTClassifier
+from se_cnn_resnet_patchtst import (
+    SEResNetPatchTSTNoAttention, SEResNetPatchTSTAttention,
+    SECNNPatchTSTAttention, SECNNPatchTSTNoAttention)
 
 
 def parse_arguments():
@@ -67,16 +70,20 @@ def parse_arguments():
                                  'direct_informer', 'light_cnn_informer', 'feature_informer',
                                  'cnn_informer_attention', 'cnn_informer_no_attention',
                                  'ltsf_linear',
-                                 'patchtst', 'multi_feature_patchtst', 'multiscale_patchtst',
-                                 'se_informer', 'se_cnn_informer', 'se_patchtst'],
+                                 'patchtst', 'patchtst_no_attention', 'multi_feature_patchtst', 'multiscale_patchtst',
+                                 'se_informer', 'se_cnn_informer', 'se_patchtst', 'se_patchtst_no_attention',
+                                 'se_resnet_patchtst_attention', 'se_resnet_patchtst_no_attention',
+                                 'se_cnn_patchtst_attention', 'se_cnn_patchtst_no_attention'],
                         default='cnn_bilstm_attention',
                         help='模型类型：CNN-BiLSTM-Attention/CNN-BiLSTM/CNN-BiGRU-Attention/'
                         'CNN(带注意力)/CNN简单版/MLP/SVM/'
                         '原生Informer/轻量CNN-Informer/手动提取特征-Informer/'
                         'CNN-Informer-Attention/CNN-Informer-No-Attention/'
-                        'LTSF-Linear/PatchTST/多特征融合PatchTST/多尺度特征融合PatchTST/'
-                        'SE-Informer/SE-CNN-Informer/SE-PatchTST')
-    
+                        'LTSF-Linear/PatchTST/PatchTST无自注意力/多特征融合PatchTST/多尺度特征融合PatchTST/'
+                        'SE-Informer/SE-CNN-Informer/SE-PatchTST/SE-PatchTST无自注意力/'
+                        'SE-ResNet-PatchTST-Attention/SE-ResNet-PatchTST-No-Attention/'
+                        'SE-CNN-PatchTST-Attention/SE-CNN-PatchTST-No-Attention')
+
     parser.add_argument('--filters', type=int, default=64,
                         help='CNN滤波器数量')
     parser.add_argument('--kernel_size', type=int, default=3,
@@ -305,6 +312,18 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 num_layers=args.patchtst_num_layers,
                 dropout_rate=args.dropout
             )
+        elif model_type == 'patchtst_no_attention':  # 新增无注意力版本的PatchTST
+            model = PatchTSTNoAttentionClassifier(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                patch_size=args.patch_size,
+                stride=args.patch_stride,
+                d_model=args.patchtst_d_model,
+                num_layers=args.patchtst_num_layers,
+                dropout_rate=args.dropout,
+                pooling_type=args.pooling_type
+            )
         elif model_type == 'se_informer':
             model = SEInformerClassifier(
                 input_channels=input_channels,
@@ -349,6 +368,20 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 use_se=args.use_se,
                 se_reduction=args.se_reduction
             )
+        elif model_type == 'se_patchtst_no_attention':
+            model = SEPatchTSTNoAttentionClassifier(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                patch_size=args.patch_size,
+                stride=args.patch_stride,
+                d_model=args.patchtst_d_model,
+                num_layers=args.patchtst_num_layers,
+                dropout_rate=args.dropout,
+                use_se=args.use_se,
+                se_reduction=args.se_reduction,
+                pooling_type=args.pooling_type
+            )
         elif model_type == 'multi_feature_patchtst':
             model = MultiFeaturePatchTSTClassifier(
                 input_channels=input_channels,
@@ -366,6 +399,70 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 sampling_rate=args.sampling_rate
             )
 
+        elif model_type == 'se_cnn_patchtst_attention':
+            model = SECNNPatchTSTAttention(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                patch_size=args.patch_size,
+                stride=args.patch_stride,
+                d_model=args.patchtst_d_model,
+                n_heads=args.patchtst_n_heads,
+                num_layers=args.patchtst_num_layers,
+                base_filters=args.base_filters,
+                kernel_size=args.cnn_kernel_size,
+                dropout_rate=args.dropout,
+                use_se=args.use_se,
+                se_reduction=args.se_reduction
+            )
+        elif model_type == 'se_cnn_patchtst_no_attention':
+            model = SECNNPatchTSTNoAttention(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                patch_size=args.patch_size,
+                stride=args.patch_stride,
+                d_model=args.patchtst_d_model,
+                num_layers=args.patchtst_num_layers,
+                pooling_type=args.pooling_type,
+                base_filters=args.base_filters,
+                kernel_size=args.cnn_kernel_size,
+                dropout_rate=args.dropout,
+                use_se=args.use_se,
+                se_reduction=args.se_reduction
+            )
+        elif model_type == 'se_resnet_patchtst_attention':
+            model = SEResNetPatchTSTAttention(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                patch_size=args.patch_size,
+                stride=args.patch_stride,
+                d_model=args.patchtst_d_model,
+                n_heads=args.patchtst_n_heads,
+                num_layers=args.patchtst_num_layers,
+                base_filters=args.base_filters,
+                kernel_size=args.cnn_kernel_size,
+                dropout_rate=args.dropout,
+                use_se=args.use_se,
+                se_reduction=args.se_reduction
+            )
+        elif model_type == 'se_resnet_patchtst_no_attention':
+            model = SEResNetPatchTSTNoAttention(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                patch_size=args.patch_size,
+                stride=args.patch_stride,
+                d_model=args.patchtst_d_model,
+                num_layers=args.patchtst_num_layers,
+                pooling_type=args.pooling_type,
+                base_filters=args.base_filters,
+                kernel_size=args.cnn_kernel_size,
+                dropout_rate=args.dropout,
+                use_se=args.use_se,
+                se_reduction=args.se_reduction
+            )
         elif model_type == 'multiscale_patchtst':
             # 解析多尺度参数
             patch_sizes = [int(x)
@@ -493,7 +590,6 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 )
             else:
                 # 使用原始自注意力
-                from pytorch_cnn_bilstm_attention import CNNLSTM_Attention
                 model = CNNLSTM_Attention(
                     input_channels=input_channels,
                     seq_length=seq_length,

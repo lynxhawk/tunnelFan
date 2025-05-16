@@ -22,7 +22,8 @@ train : val : test = 0.6 : 0.2 : 0.2
 | cnn_informer_attention  | 99.85%  |
 | se_informer_attention  | 3.25%  |
 | se_cnn_informer_attention  | 99.65%  |
-| patchtst  | 98.8%  |
+| patchtst  | ?  |
+| patchtst_attention  | 98.8%  |
 | se_patchtst  | ?  |
 | se_patchtst_attention  | 99.45%  |
 | se_cnn_patchtst  | ?  |
