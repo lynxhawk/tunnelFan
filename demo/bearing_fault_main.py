@@ -409,8 +409,8 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 d_model=args.patchtst_d_model,
                 n_heads=args.patchtst_n_heads,
                 num_layers=args.patchtst_num_layers,
-                base_filters=args.base_filters,
-                kernel_size=args.cnn_kernel_size,
+                base_filters=args.filters,
+                kernel_size=args.kernel_size,
                 dropout_rate=args.dropout,
                 use_se=args.use_se,
                 se_reduction=args.se_reduction
@@ -425,8 +425,8 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 d_model=args.patchtst_d_model,
                 num_layers=args.patchtst_num_layers,
                 pooling_type=args.pooling_type,
-                base_filters=args.base_filters,
-                kernel_size=args.cnn_kernel_size,
+                base_filters=args.filters,
+                kernel_size=args.kernel_size,
                 dropout_rate=args.dropout,
                 use_se=args.use_se,
                 se_reduction=args.se_reduction
@@ -441,8 +441,8 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 d_model=args.patchtst_d_model,
                 n_heads=args.patchtst_n_heads,
                 num_layers=args.patchtst_num_layers,
-                base_filters=args.base_filters,
-                kernel_size=args.cnn_kernel_size,
+                base_filters=args.filters,
+                kernel_size=args.kernel_size,
                 dropout_rate=args.dropout,
                 use_se=args.use_se,
                 se_reduction=args.se_reduction
@@ -457,8 +457,8 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 d_model=args.patchtst_d_model,
                 num_layers=args.patchtst_num_layers,
                 pooling_type=args.pooling_type,
-                base_filters=args.base_filters,
-                kernel_size=args.cnn_kernel_size,
+                base_filters=args.filters,
+                kernel_size=args.kernel_size,
                 dropout_rate=args.dropout,
                 use_se=args.use_se,
                 se_reduction=args.se_reduction

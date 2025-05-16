@@ -7,37 +7,22 @@ import numpy as np
 
 class SEBlock(nn.Module):
     """
-    Squeeze-and-Excitation Block
+    改进的Squeeze-and-Excitation Block
     用于通道注意力的模块，可用于增强特征表示
     """
     def __init__(self, channel, reduction=16):
         super(SEBlock, self).__init__()
         self.avg_pool = nn.AdaptiveAvgPool1d(1)
-        self.channel = channel
-        self.reduction = reduction
-        self.fc = None
-        self._build_fc(channel)
-        
-    def _build_fc(self, channel):
-        """构建全连接层，适应输入通道数"""
         self.fc = nn.Sequential(
-            nn.Linear(channel, max(1, channel // self.reduction), bias=False),
+            nn.Linear(channel, max(1, channel // reduction), bias=False),
             nn.ReLU(inplace=True),
-            nn.Linear(max(1, channel // self.reduction), channel, bias=False),
+            nn.Linear(max(1, channel // reduction), channel, bias=False),
             nn.Sigmoid()
         )
         
     def forward(self, x):
         # x: (batch_size, channels, seq_len)
         b, c, _ = x.size()
-        
-        # 检查通道数是否与预期不符
-        if c != self.channel:
-            print(f"通道数不匹配：预期 {self.channel}，实际 {c}，重建 fc 层")
-            self.channel = c
-            self._build_fc(c)
-            self.fc = self.fc.to(x.device)
-            
         y = self.avg_pool(x).view(b, c)
         y = self.fc(y).view(b, c, 1)
         return x * y.expand_as(x)
@@ -45,7 +30,7 @@ class SEBlock(nn.Module):
 
 class BasicBlock(nn.Module):
     """
-    ResNet基本块
+    简化的ResNet基本块
     """
     def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, use_se=False, se_reduction=16):
         super(BasicBlock, self).__init__()
@@ -94,7 +79,7 @@ class BasicBlock(nn.Module):
 
 class CNNFeatureExtractor(nn.Module):
     """
-    简单的CNN特征提取器
+    简化的CNN特征提取器
     """
     def __init__(self, input_channels, base_filters=64, kernel_size=3, use_se=False, se_reduction=16):
         super(CNNFeatureExtractor, self).__init__()
@@ -117,15 +102,8 @@ class CNNFeatureExtractor(nn.Module):
         if use_se:
             self.se2 = SEBlock(base_filters*2, reduction=se_reduction)
         
-        self.conv3 = nn.Conv1d(base_filters*2, base_filters*4, kernel_size=kernel_size, 
-                               stride=1, padding=kernel_size//2)
-        self.bn3 = nn.BatchNorm1d(base_filters*4)
+        self.output_channels = base_filters*2
         
-        if use_se:
-            self.se3 = SEBlock(base_filters*4, reduction=se_reduction)
-        
-        self.output_channels = base_filters*4
-    
     def forward(self, x):
         # x: (batch_size, input_channels, seq_length)
         
@@ -143,22 +121,15 @@ class CNNFeatureExtractor(nn.Module):
             x = self.se2(x)
         x = self.pool2(x)
         
-        x = self.conv3(x)
-        x = self.bn3(x)
-        x = self.relu(x)
-        if self.use_se:
-            x = self.se3(x)
-        
         return x
 
 
 class ResNetFeatureExtractor(nn.Module):
     """
-    ResNet特征提取器
+    简化的ResNet特征提取器 - 减少层数并优化结构
     """
     def __init__(self, input_channels, base_filters=64, kernel_size=3, use_se=False, se_reduction=16):
         super(ResNetFeatureExtractor, self).__init__()
-        self.use_se = use_se
         
         # 初始卷积层
         self.conv1 = nn.Conv1d(input_channels, base_filters, kernel_size=kernel_size, 
@@ -167,27 +138,11 @@ class ResNetFeatureExtractor(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         self.pool = nn.MaxPool1d(2)
         
-        # ResNet层
-        self.layer1 = self._make_layer(base_filters, base_filters, 2, stride=1, kernel_size=kernel_size, 
-                                      use_se=use_se, se_reduction=se_reduction)
-        self.layer2 = self._make_layer(base_filters, base_filters*2, 2, stride=2, kernel_size=kernel_size, 
-                                      use_se=use_se, se_reduction=se_reduction)
-        self.layer3 = self._make_layer(base_filters*2, base_filters*4, 2, stride=2, kernel_size=kernel_size, 
-                                      use_se=use_se, se_reduction=se_reduction)
+        # 简化ResNet层 - 减少层数，每层只用一个块
+        self.block1 = BasicBlock(base_filters, base_filters, kernel_size, 1, use_se, se_reduction)
+        self.block2 = BasicBlock(base_filters, base_filters*2, kernel_size, 2, use_se, se_reduction)
         
-        self.output_channels = base_filters*4
-    
-    def _make_layer(self, in_channels, out_channels, blocks, stride, kernel_size, use_se, se_reduction):
-        layers = []
-        
-        # 第一个block可能需要downsample
-        layers.append(BasicBlock(in_channels, out_channels, kernel_size, stride, use_se, se_reduction))
-        
-        # 后续block
-        for _ in range(1, blocks):
-            layers.append(BasicBlock(out_channels, out_channels, kernel_size, 1, use_se, se_reduction))
-        
-        return nn.Sequential(*layers)
+        self.output_channels = base_filters*2
     
     def forward(self, x):
         # x: (batch_size, input_channels, seq_length)
@@ -197,25 +152,25 @@ class ResNetFeatureExtractor(nn.Module):
         x = self.relu(x)
         x = self.pool(x)
         
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
+        x = self.block1(x)
+        x = self.block2(x)
         
         return x
 
 
 class PatchTST(nn.Module):
     """
-    标准PatchTST模块（带注意力机制）
+    改进的PatchTST模块（带注意力机制）
     """
     def __init__(self, d_model, patch_num, n_heads=8, num_layers=3, dropout_rate=0.1):
         super(PatchTST, self).__init__()
         
-        # 位置编码
+        # 位置编码 - 确保初始化时patch_num是明确的
+        self.patch_num = patch_num
         self.positional_encoding = nn.Parameter(torch.zeros(1, patch_num, d_model))
         nn.init.trunc_normal_(self.positional_encoding, std=0.02)
         
-        # Transformer编码器层
+        # Transformer编码器层 - 减少层数以降低复杂度
         self.encoder_layers = nn.ModuleList([
             nn.TransformerEncoderLayer(
                 d_model=d_model,
@@ -231,17 +186,31 @@ class PatchTST(nn.Module):
     
     def forward(self, x):
         # x: [batch_size, patch_num, d_model]
+        batch_size, actual_patch_num, d_model = x.size()
         
+        # 如果输入的patch数量与初始化时不同，则安全处理
+        if actual_patch_num != self.patch_num:
+            # 创建适合当前输入大小的位置编码
+            if actual_patch_num < self.patch_num:
+                # 如果实际patch数量小于预期，截取位置编码
+                pos_enc = self.positional_encoding[:, :actual_patch_num, :]
+            else:
+                # 如果实际patch数量大于预期，复制位置编码
+                repeats = (actual_patch_num + self.patch_num - 1) // self.patch_num
+                pos_enc = torch.cat([self.positional_encoding] * repeats, dim=1)[:, :actual_patch_num, :]
+        else:
+            pos_enc = self.positional_encoding
+            
         # 添加位置编码
-        x = x + self.positional_encoding
+        x = x + pos_enc
         x = self.dropout(x)
         
         # 应用Transformer编码器层
         attns = []
         for encoder in self.encoder_layers:
             x = encoder(x)
-            # 创建虚拟注意力权重
-            attn = torch.ones(x.size(0), x.size(1), device=x.device) / x.size(1)
+            # 创建均匀注意力权重
+            attn = torch.ones(batch_size, actual_patch_num, device=x.device) / actual_patch_num
             attns.append(attn)
         
         # 返回最后一层的attn作为注意力权重
@@ -250,23 +219,24 @@ class PatchTST(nn.Module):
 
 class PatchTSTNoAttention(nn.Module):
     """
-    PatchTST模块（无注意力版本）
+    改进的PatchTST模块（无注意力版本）
     """
     def __init__(self, d_model, patch_num, num_layers=3, dropout_rate=0.1, pooling_type='mean'):
         super(PatchTSTNoAttention, self).__init__()
         
         # 位置编码
+        self.patch_num = patch_num
         self.positional_encoding = nn.Parameter(torch.zeros(1, patch_num, d_model))
         nn.init.trunc_normal_(self.positional_encoding, std=0.02)
         
-        # 特征提取层（替代Transformer的编码器层）
+        # 特征提取层（替代Transformer的编码器层）- 简化结构
         self.feature_layers = nn.ModuleList()
         for _ in range(num_layers):
             layer = nn.Sequential(
-                nn.Linear(d_model, d_model * 4),
+                nn.Linear(d_model, d_model * 2),  # 减小隐藏层大小
                 nn.GELU(),
                 nn.Dropout(dropout_rate),
-                nn.Linear(d_model * 4, d_model),
+                nn.Linear(d_model * 2, d_model),
                 nn.Dropout(dropout_rate)
             )
             self.feature_layers.append(layer)
@@ -276,9 +246,23 @@ class PatchTSTNoAttention(nn.Module):
     
     def forward(self, x):
         # x: [batch_size, patch_num, d_model]
+        batch_size, actual_patch_num, d_model = x.size()
         
+        # 如果输入的patch数量与初始化时不同，则安全处理
+        if actual_patch_num != self.patch_num:
+            # 创建适合当前输入大小的位置编码
+            if actual_patch_num < self.patch_num:
+                # 如果实际patch数量小于预期，截取位置编码
+                pos_enc = self.positional_encoding[:, :actual_patch_num, :]
+            else:
+                # 如果实际patch数量大于预期，复制位置编码
+                repeats = (actual_patch_num + self.patch_num - 1) // self.patch_num
+                pos_enc = torch.cat([self.positional_encoding] * repeats, dim=1)[:, :actual_patch_num, :]
+        else:
+            pos_enc = self.positional_encoding
+            
         # 添加位置编码
-        x = x + self.positional_encoding
+        x = x + pos_enc
         x = self.dropout(x)
         
         # 应用特征提取层
@@ -286,8 +270,8 @@ class PatchTSTNoAttention(nn.Module):
             x_res = layer(x)
             x = x + x_res  # 残差连接
         
-        # 创建虚拟注意力权重
-        attn = torch.ones(x.size(0), x.size(1), device=x.device) / x.size(1)
+        # 创建均匀注意力权重
+        attn = torch.ones(batch_size, actual_patch_num, device=x.device) / actual_patch_num
         
         return x, attn
     
@@ -305,7 +289,7 @@ class PatchTSTNoAttention(nn.Module):
 
 class SECNNPatchTST_Base(nn.Module):
     """
-    SE + CNN/ResNet + PatchTST 模型的基类
+    改进的SE + CNN/ResNet + PatchTST 模型的基类
     """
     def __init__(self, input_channels=3, seq_length=1000, num_classes=38,
                  patch_size=16, stride=8, d_model=128, n_heads=8, num_layers=3, 
@@ -313,6 +297,7 @@ class SECNNPatchTST_Base(nn.Module):
                  base_filters=64, kernel_size=3, dropout_rate=0.3, use_se=True, se_reduction=16):
         super(SECNNPatchTST_Base, self).__init__()
         
+        # 保存基本参数
         self.input_channels = input_channels
         self.seq_length = seq_length
         self.num_classes = num_classes
@@ -339,11 +324,12 @@ class SECNNPatchTST_Base(nn.Module):
         else:
             raise ValueError(f"不支持的特征提取器类型: {cnn_type}")
         
-        # 计算经过CNN/ResNet后的序列长度
-        self.seq_len_after_cnn = seq_length // 4  # CNN经过两次池化，长度变为原来的1/4
+        # 计算经过CNN/ResNet后的序列长度 - 更精确的计算
+        # 两次MaxPool把长度缩小为原来的1/4
+        self.seq_len_after_cnn = seq_length // 4
         
         # 计算patch数量
-        self.num_patches = (self.seq_len_after_cnn - patch_size) // stride + 1
+        self.patch_num = max(1, (self.seq_len_after_cnn - patch_size) // stride + 1)
         
         # Patch嵌入
         self.patch_embedding = nn.Conv1d(
@@ -353,11 +339,11 @@ class SECNNPatchTST_Base(nn.Module):
             stride=stride
         )
         
-        # PatchTST模块（带注意力或无注意力）
+        # PatchTST模块（带注意力或无注意力）- 使用改进版模块
         if use_attention:
             self.patchtst = PatchTST(
                 d_model=d_model,
-                patch_num=self.num_patches,
+                patch_num=self.patch_num,
                 n_heads=n_heads,
                 num_layers=num_layers,
                 dropout_rate=dropout_rate
@@ -365,25 +351,20 @@ class SECNNPatchTST_Base(nn.Module):
         else:
             self.patchtst = PatchTSTNoAttention(
                 d_model=d_model,
-                patch_num=self.num_patches,
+                patch_num=self.patch_num,
                 num_layers=num_layers,
                 dropout_rate=dropout_rate,
                 pooling_type=pooling_type
             )
         
-        # 分类头
+        # 简化分类头
         self.classifier = nn.Sequential(
-            nn.Linear(d_model, 128),
-            nn.ReLU(),
-            nn.Dropout(dropout_rate),
-            nn.Linear(128, 64),
-            nn.ReLU(),
-            nn.Dropout(dropout_rate),
-            nn.Linear(64, num_classes)
+            nn.Linear(d_model, num_classes)
         )
-    
+        
     def forward(self, x):
         # x: [batch_size, seq_length, input_channels]
+        batch_size = x.size(0)
         
         # 调整维度用于CNN
         x = x.permute(0, 2, 1)  # [batch_size, input_channels, seq_length]
@@ -400,21 +381,21 @@ class SECNNPatchTST_Base(nn.Module):
         # 应用PatchTST模块
         x, attention_weights = self.patchtst(x)
         
-        # 池化（如果是无注意力版本）
+        # 池化
         if not self.use_attention:
             x = self.patchtst.pool(x)  # [batch_size, d_model]
         else:
-            # 如果是有注意力版本，使用平均池化
             x = torch.mean(x, dim=1)  # [batch_size, d_model]
         
         # 分类
         outputs = self.classifier(x)
         
-        # 将注意力权重调整为与原始序列相同长度（用于可视化）
-        # 这里简单地将注意力复制到全序列
-        expanded_attention = torch.zeros(x.size(0), self.seq_length, device=x.device)
-        patch_length = self.seq_length // self.num_patches
-        for i in range(self.num_patches):
+        # 将注意力权重调整为与原始序列相同长度
+        expanded_attention = torch.zeros(batch_size, self.seq_length, device=x.device)
+        actual_patches = attention_weights.size(1)
+        patch_length = self.seq_length // actual_patches
+        
+        for i in range(actual_patches):
             start_idx = i * patch_length
             end_idx = min(start_idx + patch_length, self.seq_length)
             expanded_attention[:, start_idx:end_idx] = attention_weights[:, i].unsqueeze(1)
@@ -426,8 +407,6 @@ class SECNNPatchTST_Base(nn.Module):
     
     def get_latent(self, x):
         """获取潜在表示用于可视化"""
-        # 同forward逻辑，但只返回分类器前的特征
-        
         # 调整维度用于CNN
         x = x.permute(0, 2, 1)  # [batch_size, input_channels, seq_length]
         
@@ -452,13 +431,12 @@ class SECNNPatchTST_Base(nn.Module):
         return x
 
 
-# 四种具体实现类
 class SECNNPatchTSTNoAttention(SECNNPatchTST_Base):
-    """SE + CNN + PatchTST (无注意力)"""
+    """改进的SE + CNN + PatchTST (无注意力)"""
     def __init__(self, input_channels=3, seq_length=1000, num_classes=38,
-                 patch_size=16, stride=8, d_model=128, num_layers=3, 
-                 pooling_type='mean', base_filters=64, kernel_size=3, 
-                 dropout_rate=0.3, use_se=True, se_reduction=16):
+                 patch_size=16, stride=8, d_model=128, num_layers=2, 
+                 pooling_type='mean', base_filters=32, kernel_size=3, 
+                 dropout_rate=0.3, use_se=True, se_reduction=8):
         super(SECNNPatchTSTNoAttention, self).__init__(
             input_channels=input_channels,
             seq_length=seq_length,
@@ -480,11 +458,11 @@ class SECNNPatchTSTNoAttention(SECNNPatchTST_Base):
 
 
 class SECNNPatchTSTAttention(SECNNPatchTST_Base):
-    """SE + CNN + PatchTST (有注意力)"""
+    """改进的SE + CNN + PatchTST (有注意力)"""
     def __init__(self, input_channels=3, seq_length=1000, num_classes=38,
-                 patch_size=16, stride=8, d_model=128, n_heads=8, num_layers=3,
-                 base_filters=64, kernel_size=3, dropout_rate=0.3, 
-                 use_se=True, se_reduction=16):
+                 patch_size=16, stride=8, d_model=128, n_heads=4, num_layers=2,
+                 base_filters=32, kernel_size=3, dropout_rate=0.3, 
+                 use_se=True, se_reduction=8):
         super(SECNNPatchTSTAttention, self).__init__(
             input_channels=input_channels,
             seq_length=seq_length,
@@ -506,11 +484,11 @@ class SECNNPatchTSTAttention(SECNNPatchTST_Base):
 
 
 class SEResNetPatchTSTNoAttention(SECNNPatchTST_Base):
-    """SE + ResNet + PatchTST (无注意力)"""
+    """改进的SE + ResNet + PatchTST (无注意力)"""
     def __init__(self, input_channels=3, seq_length=1000, num_classes=38,
-                 patch_size=16, stride=8, d_model=128, num_layers=3, 
-                 pooling_type='mean', base_filters=64, kernel_size=3, 
-                 dropout_rate=0.3, use_se=True, se_reduction=16):
+                 patch_size=16, stride=8, d_model=128, num_layers=2, 
+                 pooling_type='mean', base_filters=32, kernel_size=3, 
+                 dropout_rate=0.3, use_se=True, se_reduction=8):
         super(SEResNetPatchTSTNoAttention, self).__init__(
             input_channels=input_channels,
             seq_length=seq_length,
@@ -532,11 +510,11 @@ class SEResNetPatchTSTNoAttention(SECNNPatchTST_Base):
 
 
 class SEResNetPatchTSTAttention(SECNNPatchTST_Base):
-    """SE + ResNet + PatchTST (有注意力)"""
+    """改进的SE + ResNet + PatchTST (有注意力)"""
     def __init__(self, input_channels=3, seq_length=1000, num_classes=38,
-                 patch_size=16, stride=8, d_model=128, n_heads=8, num_layers=3,
-                 base_filters=64, kernel_size=3, dropout_rate=0.3, 
-                 use_se=True, se_reduction=16):
+                 patch_size=16, stride=8, d_model=128, n_heads=4, num_layers=2,
+                 base_filters=32, kernel_size=3, dropout_rate=0.3, 
+                 use_se=True, se_reduction=8):
         super(SEResNetPatchTSTAttention, self).__init__(
             input_channels=input_channels,
             seq_length=seq_length,
