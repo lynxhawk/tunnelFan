@@ -157,6 +157,108 @@ class ResNetFeatureExtractor(nn.Module):
         
         return x
 
+class OneLayerCNNFeatureExtractor(nn.Module):
+    """
+    一层卷积的CNN特征提取器
+    """
+    def __init__(self, input_channels, base_filters=64, kernel_size=3, use_se=False, se_reduction=16):
+        super(OneLayerCNNFeatureExtractor, self).__init__()
+        self.use_se = use_se
+        
+        self.conv1 = nn.Conv1d(input_channels, base_filters*2, kernel_size=kernel_size, 
+                               stride=1, padding=kernel_size//2)
+        self.bn1 = nn.BatchNorm1d(base_filters*2)
+        self.relu = nn.ReLU(inplace=True)
+        self.pool1 = nn.MaxPool1d(4)  # 使用更大的池化窗口，一次性缩小为原来的1/4
+        
+        if use_se:
+            self.se1 = SEBlock(base_filters*2, reduction=se_reduction)
+        
+        self.output_channels = base_filters*2
+        
+    def forward(self, x):
+        # x: (batch_size, input_channels, seq_length)
+        
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        if self.use_se:
+            x = self.se1(x)
+        x = self.pool1(x)
+        
+        return x
+
+
+class ThreeLayerCNNFeatureExtractor(nn.Module):
+    """
+    三层卷积的CNN特征提取器
+    """
+    def __init__(self, input_channels, base_filters=64, kernel_size=3, use_se=False, se_reduction=16):
+        super(ThreeLayerCNNFeatureExtractor, self).__init__()
+        self.use_se = use_se
+        
+        # 第一卷积层
+        self.conv1 = nn.Conv1d(input_channels, base_filters, kernel_size=kernel_size, 
+                               stride=1, padding=kernel_size//2)
+        self.bn1 = nn.BatchNorm1d(base_filters)
+        self.relu1 = nn.ReLU(inplace=True)
+        
+        if use_se:
+            self.se1 = SEBlock(base_filters, reduction=se_reduction)
+            
+        self.pool1 = nn.MaxPool1d(2)
+        
+        # 第二卷积层
+        self.conv2 = nn.Conv1d(base_filters, base_filters*2, kernel_size=kernel_size, 
+                               stride=1, padding=kernel_size//2)
+        self.bn2 = nn.BatchNorm1d(base_filters*2)
+        self.relu2 = nn.ReLU(inplace=True)
+        
+        if use_se:
+            self.se2 = SEBlock(base_filters*2, reduction=se_reduction)
+            
+        # 第三卷积层
+        self.conv3 = nn.Conv1d(base_filters*2, base_filters*2, kernel_size=kernel_size, 
+                               stride=1, padding=kernel_size//2)
+        self.bn3 = nn.BatchNorm1d(base_filters*2)
+        self.relu3 = nn.ReLU(inplace=True)
+        
+        if use_se:
+            self.se3 = SEBlock(base_filters*2, reduction=se_reduction)
+            
+        self.pool2 = nn.MaxPool1d(2)
+        
+        self.output_channels = base_filters*2
+        
+    def forward(self, x):
+        # x: (batch_size, input_channels, seq_length)
+        
+        # 第一层
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu1(x)
+        if self.use_se:
+            x = self.se1(x)
+        x = self.pool1(x)
+        
+        # 第二层
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = self.relu2(x)
+        if self.use_se:
+            x = self.se2(x)
+        
+        # 第三层
+        x = self.conv3(x)
+        x = self.bn3(x)
+        x = self.relu3(x)
+        if self.use_se:
+            x = self.se3(x)
+            
+        x = self.pool2(x)
+        
+        return x
+
 
 class PatchTST(nn.Module):
     """
@@ -315,6 +417,23 @@ class SECNNPatchTST_Base(nn.Module):
             )
         elif cnn_type.lower() == 'resnet':
             self.feature_extractor = ResNetFeatureExtractor(
+                input_channels=input_channels,
+                base_filters=base_filters,
+                kernel_size=kernel_size,
+                use_se=use_se,
+                se_reduction=se_reduction
+            )
+        # 在这里添加新的条件分支
+        elif cnn_type.lower() == 'one_layer_cnn':
+            self.feature_extractor = OneLayerCNNFeatureExtractor(
+                input_channels=input_channels,
+                base_filters=base_filters,
+                kernel_size=kernel_size,
+                use_se=use_se,
+                se_reduction=se_reduction
+            )
+        elif cnn_type.lower() == 'three_layer_cnn':
+            self.feature_extractor = ThreeLayerCNNFeatureExtractor(
                 input_channels=input_channels,
                 base_filters=base_filters,
                 kernel_size=kernel_size,
@@ -527,6 +646,58 @@ class SEResNetPatchTSTAttention(SECNNPatchTST_Base):
             use_attention=True,
             pooling_type=None,  # 不需要池化类型
             cnn_type='resnet',
+            base_filters=base_filters,
+            kernel_size=kernel_size,
+            dropout_rate=dropout_rate,
+            use_se=use_se,
+            se_reduction=se_reduction
+        )
+
+
+class SEOneLayerCNNPatchTSTAttention(SECNNPatchTST_Base):
+    """一层卷积的SE + CNN + PatchTST (有注意力)"""
+    def __init__(self, input_channels=3, seq_length=1000, num_classes=38,
+                 patch_size=16, stride=8, d_model=128, n_heads=4, num_layers=2,
+                 base_filters=32, kernel_size=3, dropout_rate=0.3, 
+                 use_se=True, se_reduction=8):
+        super(SEOneLayerCNNPatchTSTAttention, self).__init__(
+            input_channels=input_channels,
+            seq_length=seq_length,
+            num_classes=num_classes,
+            patch_size=patch_size,
+            stride=stride,
+            d_model=d_model,
+            n_heads=n_heads,
+            num_layers=num_layers,
+            use_attention=True,
+            pooling_type=None,  # 不需要池化类型
+            cnn_type='one_layer_cnn',  # 使用一层CNN
+            base_filters=base_filters,
+            kernel_size=kernel_size,
+            dropout_rate=dropout_rate,
+            use_se=use_se,
+            se_reduction=se_reduction
+        )
+
+
+class SEThreeLayerCNNPatchTSTAttention(SECNNPatchTST_Base):
+    """三层卷积的SE + CNN + PatchTST (有注意力)"""
+    def __init__(self, input_channels=3, seq_length=1000, num_classes=38,
+                 patch_size=16, stride=8, d_model=128, n_heads=4, num_layers=2,
+                 base_filters=32, kernel_size=3, dropout_rate=0.3, 
+                 use_se=True, se_reduction=8):
+        super(SEThreeLayerCNNPatchTSTAttention, self).__init__(
+            input_channels=input_channels,
+            seq_length=seq_length,
+            num_classes=num_classes,
+            patch_size=patch_size,
+            stride=stride,
+            d_model=d_model,
+            n_heads=n_heads,
+            num_layers=num_layers,
+            use_attention=True,
+            pooling_type=None,  # 不需要池化类型
+            cnn_type='three_layer_cnn',  # 使用三层CNN
             base_filters=base_filters,
             kernel_size=kernel_size,
             dropout_rate=dropout_rate,
