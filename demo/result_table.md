@@ -9,6 +9,8 @@ train : val : test = 0.6 : 0.2 : 0.2
 | cnn   | 99.65%  |
 | cnn_use_features   | 99.05%  |
 | cnn_attention   | 94.06%  |
+| lstm   | 99.2%  |
+| gru   | 99.8%  |
 | cnn_bilstm   | 99.8%  |
 | cnn_bilstm_attention   | 99.9%  |
 | cnn_bigru_attention  | 99.9%  |
