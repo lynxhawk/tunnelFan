@@ -241,26 +241,42 @@ class BearingDataProcessor:
         
         return X_train, X_test, y_train, y_test
     
-    def get_data_loaders(self, mode='signal', batch_size=32, test_size=0.2, random_state=42):
-        """获取数据加载器"""
+    def get_data_loaders(self, mode='signal', batch_size=32, test_size=0.4, random_state=42):
+        """获取数据加载器 - 支持6:2:2分割"""
         if mode == 'signal':
-            X_train, X_test, y_train, y_test = self.prepare_signal_data(test_size, random_state)
+            X_train, X_temp, y_train, y_temp = self.prepare_signal_data(test_size, random_state)
         else:
-            X_train, X_test, y_train, y_test = self.prepare_feature_data(test_size, random_state)
+            X_train, X_temp, y_train, y_temp = self.prepare_feature_data(test_size, random_state)
+        
+        # 进一步分割临时数据为验证集和测试集 (各占总数据的20%)
+        val_size = 0.5  # temp数据的一半作为验证集，一半作为测试集
+        from sklearn.model_selection import train_test_split
+        X_val, X_test, y_val, y_test = train_test_split(
+            X_temp, y_temp, test_size=val_size, random_state=random_state, stratify=y_temp
+        )
+        
+        print(f"\n数据分割结果:")
+        print(f"  - 训练集: {len(X_train)} 样本 ({len(X_train)/(len(X_train)+len(X_val)+len(X_test))*100:.1f}%)")
+        print(f"  - 验证集: {len(X_val)} 样本 ({len(X_val)/(len(X_train)+len(X_val)+len(X_test))*100:.1f}%)")
+        print(f"  - 测试集: {len(X_test)} 样本 ({len(X_test)/(len(X_train)+len(X_val)+len(X_test))*100:.1f}%)")
         
         # 创建数据集
         train_dataset = BearingDataset(X_train, y_train, self.seq_length, mode)
+        val_dataset = BearingDataset(X_val, y_val, self.seq_length, mode)
         test_dataset = BearingDataset(X_test, y_test, self.seq_length, mode)
         
         # 创建数据加载器
         train_loader = DataLoader(
             train_dataset, batch_size=batch_size, shuffle=True, num_workers=4
         )
+        val_loader = DataLoader(
+            val_dataset, batch_size=batch_size, shuffle=False, num_workers=4
+        )
         test_loader = DataLoader(
             test_dataset, batch_size=batch_size, shuffle=False, num_workers=4
         )
         
-        return train_loader, test_loader
+        return train_loader, val_loader, test_loader
     
     def get_class_info(self):
         """获取类别信息"""
