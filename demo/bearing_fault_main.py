@@ -41,7 +41,10 @@ from se_cnn_resnet_patchtst import (
     SEResNetPatchTSTNoAttention, SEResNetPatchTSTAttention,
     SECNNPatchTSTAttention, SECNNPatchTSTNoAttention,
     SEOneLayerCNNPatchTSTAttention, SEThreeLayerCNNPatchTSTAttention)
-
+from lstm_gru_models import (
+    PureLSTMClassifier, PureGRUClassifier, 
+    LSTMWithAttention, GRUWithAttention
+)
 
 def parse_arguments():
     """
@@ -68,6 +71,7 @@ def parse_arguments():
     parser.add_argument('--model_type', type=str,
                         choices=['cnn_bilstm_attention', 'cnn_bilstm', 'cnn_bigru_attention',
                                  'cnn_attention', 'cnn_model', 'mlp', 'svm',
+                                 'pure_lstm', 'pure_gru', 'lstm_attention', 'gru_attention', 
                                  'direct_informer', 'light_cnn_informer', 'feature_informer',
                                  'cnn_informer_attention', 'cnn_informer_no_attention',
                                  'ltsf_linear',
@@ -79,6 +83,7 @@ def parse_arguments():
                         default='cnn_bilstm_attention',
                         help='模型类型：CNN-BiLSTM-Attention/CNN-BiLSTM/CNN-BiGRU-Attention/'
                         'CNN(带注意力)/CNN简单版/MLP/SVM/'
+                        '/纯LSTM/纯GRU/LSTM+注意力/GRU+注意力/'
                         '原生Informer/轻量CNN-Informer/手动提取特征-Informer/'
                         'CNN-Informer-Attention/CNN-Informer-No-Attention/'
                         'LTSF-Linear/PatchTST/PatchTST无自注意力/多特征融合PatchTST/多尺度特征融合PatchTST/'
@@ -96,6 +101,12 @@ def parse_arguments():
     parser.add_argument('--dropout', type=float, default=0.3,
                         help='Dropout比率')
 
+    # 在parse_arguments()函数中添加新参数
+    parser.add_argument('--rnn_layers', type=int, default=2,
+                        help='LSTM/GRU层数')
+    parser.add_argument('--bidirectional', action='store_true', default=True,
+                        help='是否使用双向LSTM/GRU')
+    
     # 添加Informer特定参数
     parser.add_argument('--informer_d_model', type=int, default=256,
                         help='Informer模型维度')
@@ -498,6 +509,50 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 use_se=args.use_se,
                 se_reduction=args.se_reduction
             )
+        elif model_type == 'pure_lstm':
+            model = PureLSTMClassifier(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                lstm_hidden=args.lstm_hidden,
+                num_layers=args.rnn_layers,
+                dropout_rate=args.dropout,
+                bidirectional=args.bidirectional,
+                pooling_type=args.pooling_type
+            )
+        elif model_type == 'pure_gru':
+            model = PureGRUClassifier(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                gru_hidden=args.lstm_hidden,  # 复用lstm_hidden参数
+                num_layers=args.rnn_layers,
+                dropout_rate=args.dropout,
+                bidirectional=args.bidirectional,
+                pooling_type=args.pooling_type
+            )
+        elif model_type == 'lstm_attention':
+            model = LSTMWithAttention(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                lstm_hidden=args.lstm_hidden,
+                num_layers=args.rnn_layers,
+                dropout_rate=args.dropout,
+                bidirectional=args.bidirectional,
+                attention_dim=args.attention_dim
+            )
+        elif model_type == 'gru_attention':
+            model = GRUWithAttention(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                gru_hidden=args.lstm_hidden,  # 复用lstm_hidden参数
+                num_layers=args.rnn_layers,
+                dropout_rate=args.dropout,
+                bidirectional=args.bidirectional,
+                attention_dim=args.attention_dim
+            )
         elif model_type == 'multiscale_patchtst':
             # 解析多尺度参数
             patch_sizes = [int(x)
@@ -816,6 +871,8 @@ def train_workflow(processor, args, device):
         )
 
         # 保存模型
+
+        
         save_model(model, args.model_path)
 
     # 记录训练结束时间
@@ -874,7 +931,8 @@ def train_workflow(processor, args, device):
         visualize_confusion_matrix(cm, class_names)
 
     # 可视化注意力权重 (对于有意义的注意力机制的模型)
-    if not args.use_features and args.model_type in ['cnn_lstm_attention', 'cnn_bigru_attention', 'cnn_attention']:
+    if not args.use_features and args.model_type in ['cnn_lstm_attention', 'cnn_bigru_attention', 'cnn_attention', 
+                                                  'lstm_attention', 'gru_attention']:
         visualize_attention_weights(model, test_loader, device)
 
     # 可视化潜在空间（使用t-SNE）- 对所有模型类型
