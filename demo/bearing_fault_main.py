@@ -51,8 +51,7 @@ from transformer_models import (
 )
 from fixed_informer_models import (
     FixedDirectInformerClassifier, OptimizedTransformerClassifier,
-    LightweightCNNTransformer, create_fixed_informer,
-    create_optimized_transformer, create_lightweight_cnn_transformer
+    LightweightCNNTransformer,
 )
 
 def parse_arguments():
