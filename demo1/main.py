@@ -123,7 +123,7 @@ class BearingClassificationTrainer:
         # 定义损失函数和优化器
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(self.model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-        scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=5, verbose=True)
+        scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=5)
         
         print(f"开始训练，共 {num_epochs} 个epoch...")
         print(f"设备: {self.device}")
@@ -161,6 +161,9 @@ class BearingClassificationTrainer:
                 early_stop_counter = 0
                 
                 if save_best:
+                    # 删除之前的最佳模型文件
+                    self._cleanup_old_models()
+                    # 保存新的最佳模型
                     self.save_model(f'best_model_acc_{val_acc:.4f}.pth')
                     print(f"保存最佳模型 (Accuracy: {val_acc:.4f})")
             else:
@@ -176,6 +179,21 @@ class BearingClassificationTrainer:
         print(f"最佳验证准确率: {self.best_accuracy:.4f}")
         
         return self.training_history
+    
+    def _cleanup_old_models(self):
+        """清理旧的最佳模型文件"""
+        try:
+            # 查找所有以 'best_model' 开头的文件
+            best_model_files = [f for f in os.listdir(self.save_dir) if f.startswith('best_model_acc_')]
+            
+            # 删除所有旧的最佳模型文件
+            for old_file in best_model_files:
+                old_path = os.path.join(self.save_dir, old_file)
+                if os.path.exists(old_path):
+                    os.remove(old_path)
+                    print(f"删除旧模型: {old_file}")
+        except Exception as e:
+            print(f"清理旧模型时出错: {e}")
     
     def save_model(self, filename):
         """保存模型"""
@@ -223,7 +241,7 @@ class BearingClassificationTrainer:
         plt.show()
 
 
-def evaluate_model(model, test_loader, device, class_names=None, save_results=True):
+def evaluate_model(model, test_loader, device, class_names=None, save_results=True, save_dir='checkpoints'):
     """评估模型性能"""
     model.eval()
     all_predictions = []
@@ -256,48 +274,212 @@ def evaluate_model(model, test_loader, device, class_names=None, save_results=Tr
         print("\n分类报告:")
         print(classification_report(all_labels, all_predictions, 
                                   target_names=class_names, digits=4))
+    elif class_names and len(class_names) > 30:
+        # 对于类别过多的情况，只显示汇总统计
+        print(f"\n分类汇总 (共{len(class_names)}个类别):")
+        print(classification_report(all_labels, all_predictions, digits=4))
+    else:
+        print("\n分类报告:")
+        print(classification_report(all_labels, all_predictions, digits=4))
     
     # 计算混淆矩阵
     cm = confusion_matrix(all_labels, all_predictions)
     
     # 可视化混淆矩阵
-    visualize_confusion_matrix(cm, class_names, save_results)
+    visualize_confusion_matrix(cm, class_names, save_results, save_dir)
+    
+    # 创建详细分析报告
+    if len(cm) > 10:
+        create_detailed_confusion_analysis(cm, class_names, save_dir)
     
     # t-SNE可视化
     if all_latent_features:
         visualize_tsne(np.array(all_latent_features), np.array(all_labels), 
-                      class_names, save_results)
+                      class_names, save_results, save_dir)
     
     return accuracy, all_predictions, all_labels, cm
 
 
-def visualize_confusion_matrix(cm, class_names=None, save_results=True):
-    """可视化混淆矩阵"""
-    plt.figure(figsize=(15, 12))
+def visualize_confusion_matrix(cm, class_names=None, save_results=True, save_dir='checkpoints'):
+    """可视化混淆矩阵 - 支持类别聚合"""
     
-    if class_names and len(class_names) <= 30:
-        # 对于类别数较少的情况，显示详细的混淆矩阵
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
-                    xticklabels=class_names, yticklabels=class_names,
+    # 如果类别数量太多(>10)，进行聚合
+    if len(cm) > 10:
+        print(f"📊 检测到{len(cm)}个类别，聚合为10个组以便可视化...")
+        
+        # 计算聚合的混淆矩阵
+        aggregated_cm = aggregate_confusion_matrix(cm, num_groups=10)
+        
+        # 创建聚合后的类别名称
+        aggregated_class_names = [f'Group {i}' for i in range(10)]
+        
+        # 绘制聚合后的混淆矩阵
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(aggregated_cm, annot=True, fmt='d', cmap='Blues',
+                    xticklabels=aggregated_class_names, yticklabels=aggregated_class_names,
                     square=True, cbar_kws={"shrink": .8})
-        plt.xticks(rotation=45, ha='right')
+        plt.title(f'Aggregated Confusion Matrix (10 Groups from {len(cm)} Classes)')
+        plt.xlabel('Predicted Group')
+        plt.ylabel('True Group')
+        plt.xticks(rotation=45)
         plt.yticks(rotation=0)
+        
+        if save_results:
+            save_path = os.path.join(save_dir, 'confusion_matrix_aggregated.png')
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            print(f"聚合混淆矩阵已保存到: {save_path}")
+        
+        plt.tight_layout()
+        plt.show()
+        
+        # 保存详细的分组信息
+        save_aggregation_info(len(cm), save_dir)
+        
     else:
-        # 对于类别数较多的情况，不显示标签
-        sns.heatmap(cm, cmap='Blues', square=True, cbar_kws={"shrink": .8})
-        plt.xlabel(f'Predicted Label ({len(cm)} classes)')
-        plt.ylabel(f'True Label ({len(cm)} classes)')
+        # 原有的详细混淆矩阵逻辑
+        plt.figure(figsize=(12, 10))
+        
+        if class_names and len(class_names) <= 30:
+            # 对于类别数较少的情况，显示详细的混淆矩阵
+            sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+                        xticklabels=class_names, yticklabels=class_names,
+                        square=True, cbar_kws={"shrink": .8})
+            plt.xticks(rotation=45, ha='right')
+            plt.yticks(rotation=0)
+        else:
+            # 对于类别数较多的情况，不显示标签
+            sns.heatmap(cm, cmap='Blues', square=True, cbar_kws={"shrink": .8})
+            plt.xlabel(f'Predicted Label ({len(cm)} classes)')
+            plt.ylabel(f'True Label ({len(cm)} classes)')
+        
+        plt.title('Confusion Matrix')
+        plt.tight_layout()
+        
+        if save_results:
+            save_path = os.path.join(save_dir, 'confusion_matrix.png')
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            print(f"混淆矩阵已保存到: {save_path}")
+        plt.show()
+
+
+def aggregate_confusion_matrix(cm, num_groups=10):
+    """将混淆矩阵聚合为指定数量的组"""
+    num_classes = len(cm)
     
-    plt.title('Confusion Matrix')
-    plt.tight_layout()
+    # 计算每组的大小
+    group_size = num_classes // num_groups
+    remainder = num_classes % num_groups
     
-    if save_results:
-        plt.savefig('confusion_matrix.png', dpi=300, bbox_inches='tight')
-    plt.show()
+    # 创建聚合后的混淆矩阵
+    aggregated_cm = np.zeros((num_groups, num_groups), dtype=int)
+    
+    # 聚合逻辑：将连续的类别分组
+    for i in range(num_classes):
+        for j in range(num_classes):
+            # 确定源类别属于哪个组
+            true_group = min(i // group_size, num_groups - 1)
+            pred_group = min(j // group_size, num_groups - 1)
+            
+            # 累加到对应的组
+            aggregated_cm[true_group, pred_group] += cm[i, j]
+    
+    return aggregated_cm
+
+
+def save_aggregation_info(num_classes, save_dir):
+    """保存聚合信息"""
+    group_size = num_classes // 10
+    remainder = num_classes % 10
+    
+    aggregation_info = {
+        "total_classes": num_classes,
+        "num_groups": 10,
+        "group_mapping": {}
+    }
+    
+    # 生成分组映射
+    for group_id in range(10):
+        start_class = group_id * group_size
+        if group_id == 9:  # 最后一组包含余数
+            end_class = num_classes - 1
+        else:
+            end_class = (group_id + 1) * group_size - 1
+        
+        aggregation_info["group_mapping"][f"Group {group_id}"] = {
+            "class_range": f"{start_class}-{end_class}",
+            "num_classes": end_class - start_class + 1
+        }
+    
+    # 保存到JSON文件
+    import json
+    info_path = os.path.join(save_dir, 'confusion_matrix_aggregation_info.json')
+    with open(info_path, 'w', encoding='utf-8') as f:
+        json.dump(aggregation_info, f, indent=2, ensure_ascii=False)
+    
+    print(f"📋 分组信息已保存到: {info_path}")
+    
+    # 打印分组信息
+    print(f"\n📊 混淆矩阵分组详情:")
+    for group_name, info in aggregation_info["group_mapping"].items():
+        print(f"  {group_name}: 类别 {info['class_range']} ({info['num_classes']}个类别)")
+
+
+def create_detailed_confusion_analysis(cm, class_names, save_dir):
+    """创建详细的混淆矩阵分析报告"""
+    num_classes = len(cm)
+    
+    # 计算每个类别的准确率
+    class_accuracies = []
+    for i in range(num_classes):
+        if np.sum(cm[i, :]) > 0:
+            accuracy = cm[i, i] / np.sum(cm[i, :])
+            class_accuracies.append(accuracy)
+        else:
+            class_accuracies.append(0.0)
+    
+    # 找出表现最好和最差的类别
+    best_classes = np.argsort(class_accuracies)[-5:][::-1]  # 前5个最好的
+    worst_classes = np.argsort(class_accuracies)[:5]        # 前5个最差的
+    
+    # 生成分析报告
+    analysis = {
+        "overall_accuracy": np.trace(cm) / np.sum(cm),
+        "per_class_accuracy": {
+            str(i): float(acc) for i, acc in enumerate(class_accuracies)
+        },
+        "best_performing_classes": {
+            str(i): float(class_accuracies[i]) for i in best_classes
+        },
+        "worst_performing_classes": {
+            str(i): float(class_accuracies[i]) for i in worst_classes
+        },
+        "total_samples": int(np.sum(cm)),
+        "num_classes": num_classes
+    }
+    
+    # 保存分析报告
+    import json
+    analysis_path = os.path.join(save_dir, 'confusion_matrix_analysis.json')
+    with open(analysis_path, 'w', encoding='utf-8') as f:
+        json.dump(analysis, f, indent=2, ensure_ascii=False)
+    
+    print(f"📈 详细分析报告已保存到: {analysis_path}")
+    
+    # 打印简要分析
+    print(f"\n📈 混淆矩阵分析摘要:")
+    print(f"  总体准确率: {analysis['overall_accuracy']:.4f}")
+    print(f"  表现最好的5个类别:")
+    for class_id in best_classes:
+        class_name = class_names[class_id] if class_names and class_id < len(class_names) else f"Class_{class_id}"
+        print(f"    类别 {class_id} ({class_name[:20]}...): {class_accuracies[class_id]:.4f}")
+    print(f"  表现最差的5个类别:")
+    for class_id in worst_classes:
+        class_name = class_names[class_id] if class_names and class_id < len(class_names) else f"Class_{class_id}"
+        print(f"    类别 {class_id} ({class_name[:20]}...): {class_accuracies[class_id]:.4f}")
 
 
 def visualize_tsne(latent_features, labels, class_names=None, save_results=True, 
-                   max_samples=5000):
+                   save_dir='checkpoints', max_samples=5000):
     """使用t-SNE可视化潜在特征"""
     print("正在计算t-SNE可视化...")
     
@@ -336,7 +518,9 @@ def visualize_tsne(latent_features, labels, class_names=None, save_results=True,
     plt.tight_layout()
     
     if save_results:
-        plt.savefig('tsne_visualization.png', dpi=300, bbox_inches='tight')
+        save_path = os.path.join(save_dir, 'tsne_visualization.png')
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"t-SNE可视化已保存到: {save_path}")
     plt.show()
 
 
@@ -383,13 +567,13 @@ def parse_arguments():
                        help='Dropout比率')
     
     # 训练相关参数
-    parser.add_argument('--batch_size', type=int, default=32,
+    parser.add_argument('--batch_size', type=int, default=64,
                        help='批次大小')
-    parser.add_argument('--epochs', type=int, default=100,
+    parser.add_argument('--epochs', type=int, default=50,
                        help='训练轮数')
     parser.add_argument('--lr', type=float, default=0.001,
                        help='学习率')
-    parser.add_argument('--patience', type=int, default=15,
+    parser.add_argument('--patience', type=int, default=10,
                        help='早停耐心值')
     parser.add_argument('--weight_decay', type=float, default=1e-5,
                        help='权重衰减')
@@ -515,7 +699,7 @@ def train_workflow(processor, args, device):
     
     # 评估模型
     test_accuracy, predictions, labels, cm = evaluate_model(
-        model, test_loader, device, class_names[:20] if len(class_names) > 20 else class_names
+        model, test_loader, device, class_names, save_results=True, save_dir=args.save_dir
     )
     
     # 保存最终模型
@@ -611,7 +795,7 @@ def test_workflow(processor, args, device):
     # 评估模型
     class_names = checkpoint.get('class_names', [f'Class_{i}' for i in range(model_config['num_classes'])])
     test_accuracy, predictions, labels, cm = evaluate_model(
-        model, test_loader, device, class_names[:20] if len(class_names) > 20 else class_names
+        model, test_loader, device, class_names, save_results=True, save_dir=args.save_dir
     )
     
     print(f"\n测试完成！")

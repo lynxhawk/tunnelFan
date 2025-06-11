@@ -1,0 +1,46 @@
+{
+  "total_classes": 99,
+  "num_groups": 10,
+  "group_mapping": {
+    "Group 0": {
+      "class_range": "0-8",
+      "num_classes": 9
+    },
+    "Group 1": {
+      "class_range": "9-17",
+      "num_classes": 9
+    },
+    "Group 2": {
+      "class_range": "18-26",
+      "num_classes": 9
+    },
+    "Group 3": {
+      "class_range": "27-35",
+      "num_classes": 9
+    },
+    "Group 4": {
+      "class_range": "36-44",
+      "num_classes": 9
+    },
+    "Group 5": {
+      "class_range": "45-53",
+      "num_classes": 9
+    },
+    "Group 6": {
+      "class_range": "54-62",
+      "num_classes": 9
+    },
+    "Group 7": {
+      "class_range": "63-71",
+      "num_classes": 9
+    },
+    "Group 8": {
+      "class_range": "72-80",
+      "num_classes": 9
+    },
+    "Group 9": {
+      "class_range": "81-98",
+      "num_classes": 18
+    }
+  }
+}
