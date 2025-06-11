@@ -17,6 +17,8 @@ train : val : test = 0.6 : 0.2 : 0.2
 | cnn_bilstm_attention_enhanced  | 99.85%  |
 | cnn_bilstm_attention_hybrid  | 99.8%  |
 | cnn_bilstm_attention_multihead  | 99.85%  |
+| transformer | 96.31% |
+| cnn-transformer | 99.8% |
 | informer  | 3.05%  |
 | informer_use_features  | 99.1%  |
 | light_cnn_informer  | 5.34%  |

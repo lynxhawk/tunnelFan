@@ -48,8 +48,11 @@ from lstm_gru_models import (
 from transformer_models import (
     VanillaTransformerClassifier, CNNTransformerClassifier, 
     EfficientTransformerClassifier, ConvTransformerClassifier,
-    create_vanilla_transformer, create_cnn_transformer,
-    create_efficient_transformer, create_conv_transformer
+)
+from fixed_informer_models import (
+    FixedDirectInformerClassifier, OptimizedTransformerClassifier,
+    LightweightCNNTransformer, create_fixed_informer,
+    create_optimized_transformer, create_lightweight_cnn_transformer
 )
 
 def parse_arguments():
@@ -79,6 +82,7 @@ def parse_arguments():
                                  'cnn_attention', 'cnn_model', 'mlp', 'svm',
                                  'pure_lstm', 'pure_gru', 'lstm_attention', 'gru_attention', 
                                  'vanilla_transformer', 'cnn_transformer', 'efficient_transformer', 'conv_transformer',
+                                 'fixed_informer', 'optimized_transformer', 'lightweight_cnn_transformer',
                                  'direct_informer', 'light_cnn_informer', 'feature_informer',
                                  'cnn_informer_attention', 'cnn_informer_no_attention',
                                  'ltsf_linear',
@@ -92,6 +96,7 @@ def parse_arguments():
                         'CNN(带注意力)/CNN简单版/MLP/SVM/'
                         '纯LSTM/纯GRU/LSTM+注意力/GRU+注意力/'
                         '原生Transformer/CNN-Transformer混合/高效线性Transformer/卷积-Transformer/'
+                        '修复版Informer/优化Transformer/轻量级CNN-Transformer/'
                         '原生Informer/轻量CNN-Informer/手动提取特征-Informer/'
                         'CNN-Informer-Attention/CNN-Informer-No-Attention/'
                         'LTSF-Linear/PatchTST/PatchTST无自注意力/多特征融合PatchTST/多尺度特征融合PatchTST/'
@@ -626,6 +631,41 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 d_ff=args.transformer_d_ff,
                 dropout=args.dropout
             )
+        elif model_type == 'fixed_informer':
+            model = FixedDirectInformerClassifier(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                d_model=args.transformer_d_model,  # 使用transformer参数
+                n_heads=args.transformer_n_heads,
+                d_ff=args.transformer_d_ff,
+                depth=args.transformer_num_layers,
+                factor=3,  # 固定较小的factor
+                dropout_rate=args.dropout
+            )
+        elif model_type == 'optimized_transformer':
+            model = OptimizedTransformerClassifier(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                d_model=args.transformer_d_model,
+                n_heads=args.transformer_n_heads,
+                num_layers=args.transformer_num_layers,
+                d_ff=args.transformer_d_ff,
+                dropout=args.dropout,
+                use_cnn_preprocessing=True  # 默认使用CNN预处理
+            )
+        elif model_type == 'lightweight_cnn_transformer':
+            model = LightweightCNNTransformer(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                cnn_filters=args.filters // 2 if args.memory_efficient else args.filters,
+                d_model=args.transformer_d_model,
+                n_heads=args.transformer_n_heads,
+                num_layers=max(2, args.transformer_num_layers - 1),  # 稍微减少层数
+                dropout=args.dropout
+            )
         elif model_type == 'multiscale_patchtst':
             # 解析多尺度参数
             patch_sizes = [int(x)
@@ -1007,7 +1047,8 @@ def train_workflow(processor, args, device):
     if not args.use_features and args.model_type in ['cnn_lstm_attention', 'cnn_bigru_attention', 'cnn_attention', 
                                                   'lstm_attention', 'gru_attention',
                                                   'vanilla_transformer', 'cnn_transformer', 
-                                                  'efficient_transformer', 'conv_transformer']:
+                                                  'efficient_transformer', 'conv_transformer',
+                                                  'fixed_informer', 'optimized_transformer', 'lightweight_cnn_transformer']:
         visualize_attention_weights(model, test_loader, device)
 
     # 可视化潜在空间（使用t-SNE）- 对所有模型类型
@@ -1173,7 +1214,8 @@ def test_workflow(processor, args, device):
     if not config['use_features'] and model_type in ['cnn_lstm_attention', 'cnn_bigru_attention', 'cnn_attention', 
                                                   'lstm_attention', 'gru_attention',
                                                   'vanilla_transformer', 'cnn_transformer', 
-                                                  'efficient_transformer', 'conv_transformer']:
+                                                  'efficient_transformer', 'conv_transformer',
+                                                  'fixed_informer', 'optimized_transformer', 'lightweight_cnn_transformer']:
         visualize_attention_weights(model, test_loader, device)
     # 可视化潜在空间（使用t-SNE）- 对所有模型类型
     visualize_latent_space(model, test_loader, device,

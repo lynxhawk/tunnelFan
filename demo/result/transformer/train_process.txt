@@ -1,0 +1,376 @@
+测试集大小: (2003, 1000, 3)
+Creating model of type: vanilla_transformer
+VanillaTransformerClassifier(
+  (input_projection): Linear(in_features=3, out_features=96, bias=True)
+  (pos_encoding): PositionalEncoding(
+    (dropout): Dropout(p=0.3, inplace=False)
+  )
+  (transformer_blocks): ModuleList(
+    (0-2): 3 x TransformerBlock(
+      (attention): MultiHeadAttention(
+        (w_q): Linear(in_features=96, out_features=96, bias=False)
+        (w_k): Linear(in_features=96, out_features=96, bias=False)
+        (w_v): Linear(in_features=96, out_features=96, bias=False)
+        (w_o): Linear(in_features=96, out_features=96, bias=True)
+        (dropout): Dropout(p=0.3, inplace=False)
+      )
+      (feed_forward): FeedForward(
+        (linear1): Linear(in_features=96, out_features=192, bias=True)
+        (linear2): Linear(in_features=192, out_features=96, bias=True)
+        (dropout): Dropout(p=0.3, inplace=False)
+        (activation): GELU(approximate='none')
+      )
+      (norm1): LayerNorm((96,), eps=1e-05, elementwise_affine=True)
+      (norm2): LayerNorm((96,), eps=1e-05, elementwise_affine=True)
+      (dropout): Dropout(p=0.3, inplace=False)
+    )
+  )
+  (global_pool): AdaptiveAvgPool1d(output_size=1)
+  (classifier): Sequential(
+    (0): Linear(in_features=96, out_features=48, bias=True)
+    (1): GELU(approximate='none')
+    (2): Dropout(p=0.3, inplace=False)
+    (3): Linear(in_features=48, out_features=38, bias=True)
+  )
+  (dropout): Dropout(p=0.3, inplace=False)
+)
+
+Epoch 1/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 1/50 | Train Loss: 2.7364 | Train Acc: 0.2001 | Val Loss: 1.3196 | Val Acc: 0.6081 | LR: 0.001000 | 时间: 78.8秒 | 总耗时: 1.3分钟
+模型性能提升！保存最佳模型 (验证损失: 1.3196)
+
+Epoch 2/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 2/50 | Train Loss: 1.2761 | Train Acc: 0.5664 | Val Loss: 0.6538 | Val Acc: 0.7918 | LR: 0.001000 | 时间: 76.2秒 | 总耗时: 2.6分钟
+模型性能提升！保存最佳模型 (验证损失: 0.6538)
+
+Epoch 3/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 3/50 | Train Loss: 0.8228 | Train Acc: 0.7081 | Val Loss: 0.3990 | Val Acc: 0.8682 | LR: 0.001000 | 时间: 76.3秒 | 总耗时: 3.9分钟
+模型性能提升！保存最佳模型 (验证损失: 0.3990)
+
+Epoch 4/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 4/50 | Train Loss: 0.5986 | Train Acc: 0.7822 | Val Loss: 0.3628 | Val Acc: 0.8587 | LR: 0.001000 | 时间: 76.5秒 | 总耗时: 5.1分钟
+模型性能提升！保存最佳模型 (验证损失: 0.3628)
+
+Epoch 5/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 5/50 | Train Loss: 0.5347 | Train Acc: 0.8064 | Val Loss: 0.2561 | Val Acc: 0.9176 | LR: 0.001000 | 时间: 76.4秒 | 总耗时: 6.4分钟
+模型性能提升！保存最佳模型 (验证损失: 0.2561)
+
+Epoch 6/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 6/50 | Train Loss: 0.4440 | Train Acc: 0.8385 | Val Loss: 0.2878 | Val Acc: 0.8977 | LR: 0.001000 | 时间: 76.5秒 | 总耗时: 7.7分钟
+模型性能未提升 (1/10)
+
+Epoch 7/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 7/50 | Train Loss: 0.4284 | Train Acc: 0.8453 | Val Loss: 0.2491 | Val Acc: 0.9006 | LR: 0.001000 | 时间: 76.5秒 | 总耗时: 9.0分钟
+模型性能提升！保存最佳模型 (验证损失: 0.2491)
+
+Epoch 8/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 8/50 | Train Loss: 0.3347 | Train Acc: 0.8776 | Val Loss: 0.2151 | Val Acc: 0.9176 | LR: 0.001000 | 时间: 76.3秒 | 总耗时: 10.2分钟
+模型性能提升！保存最佳模型 (验证损失: 0.2151)
+
+Epoch 9/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 9/50 | Train Loss: 0.3610 | Train Acc: 0.8661 | Val Loss: 0.2671 | Val Acc: 0.9121 | LR: 0.001000 | 时间: 76.7秒 | 总耗时: 11.5分钟
+模型性能未提升 (1/10)
+
+Epoch 10/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 10/50 | Train Loss: 0.3494 | Train Acc: 0.8755 | Val Loss: 0.1808 | Val Acc: 0.9371 | LR: 0.001000 | 时间: 76.3秒 | 总耗时: 12.8分钟
+模型性能提升！保存最佳模型 (验证损失: 0.1808)
+
+Epoch 11/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 11/50 | Train Loss: 0.3405 | Train Acc: 0.8791 | Val Loss: 0.1923 | Val Acc: 0.9251 | LR: 0.001000 | 时间: 77.0秒 | 总耗时: 14.1分钟
+模型性能未提升 (1/10)
+
+Epoch 12/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 12/50 | Train Loss: 0.2993 | Train Acc: 0.8894 | Val Loss: 0.2823 | Val Acc: 0.8852 | LR: 0.001000 | 时间: 76.8秒 | 总耗时: 15.3分钟
+模型性能未提升 (2/10)
+
+Epoch 13/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 13/50 | Train Loss: 0.2708 | Train Acc: 0.8989 | Val Loss: 0.2394 | Val Acc: 0.9061 | LR: 0.001000 | 时间: 76.9秒 | 总耗时: 16.6分钟
+模型性能未提升 (3/10)
+
+Epoch 14/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 14/50 | Train Loss: 0.3370 | Train Acc: 0.8798 | Val Loss: 0.3011 | Val Acc: 0.8952 | LR: 0.001000 | 时间: 80.7秒 | 总耗时: 18.0分钟
+模型性能未提升 (4/10)
+
+Epoch 15/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 15/50 | Train Loss: 0.3465 | Train Acc: 0.8701 | Val Loss: 0.2535 | Val Acc: 0.9196 | LR: 0.001000 | 时间: 80.7秒 | 总耗时: 19.3分钟
+模型性能未提升 (5/10)
+
+Epoch 16/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 16/50 | Train Loss: 0.2764 | Train Acc: 0.8988 | Val Loss: 0.1658 | Val Acc: 0.9386 | LR: 0.001000 | 时间: 76.5秒 | 总耗时: 20.6分钟
+模型性能提升！保存最佳模型 (验证损失: 0.1658)
+
+Epoch 17/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 17/50 | Train Loss: 0.2470 | Train Acc: 0.9088 | Val Loss: 0.1333 | Val Acc: 0.9471 | LR: 0.001000 | 时间: 76.3秒 | 总耗时: 21.9分钟
+模型性能提升！保存最佳模型 (验证损失: 0.1333)
+
+Epoch 18/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 18/50 | Train Loss: 0.2178 | Train Acc: 0.9192 | Val Loss: 0.1622 | Val Acc: 0.9396 | LR: 0.001000 | 时间: 76.4秒 | 总耗时: 23.1分钟
+模型性能未提升 (1/10)
+
+Epoch 19/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 19/50 | Train Loss: 0.2800 | Train Acc: 0.8984 | Val Loss: 0.2129 | Val Acc: 0.9401 | LR: 0.001000 | 时间: 76.2秒 | 总耗时: 24.4分钟
+模型性能未提升 (2/10)
+
+Epoch 20/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 20/50 | Train Loss: 0.2525 | Train Acc: 0.9101 | Val Loss: 0.3122 | Val Acc: 0.8882 | LR: 0.001000 | 时间: 76.3秒 | 总耗时: 25.7分钟
+模型性能未提升 (3/10)
+
+Epoch 21/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 21/50 | Train Loss: 0.2252 | Train Acc: 0.9124 | Val Loss: 0.1604 | Val Acc: 0.9376 | LR: 0.001000 | 时间: 76.5秒 | 总耗时: 26.9分钟
+模型性能未提升 (4/10)
+
+Epoch 22/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 22/50 | Train Loss: 0.2239 | Train Acc: 0.9199 | Val Loss: 0.2026 | Val Acc: 0.9326 | LR: 0.001000 | 时间: 76.4秒 | 总耗时: 28.2分钟
+模型性能未提升 (5/10)
+
+Epoch 23/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 23/50 | Train Loss: 0.2954 | Train Acc: 0.8963 | Val Loss: 0.2022 | Val Acc: 0.9221 | LR: 0.000500 | 时间: 76.7秒 | 总耗时: 29.5分钟
+模型性能未提升 (6/10)
+
+Epoch 24/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 24/50 | Train Loss: 0.1497 | Train Acc: 0.9467 | Val Loss: 0.1087 | Val Acc: 0.9586 | LR: 0.000500 | 时间: 76.6秒 | 总耗时: 30.8分钟
+模型性能提升！保存最佳模型 (验证损失: 0.1087)
+
+Epoch 25/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 25/50 | Train Loss: 0.1331 | Train Acc: 0.9529 | Val Loss: 0.1126 | Val Acc: 0.9636 | LR: 0.000500 | 时间: 76.3秒 | 总耗时: 32.0分钟
+模型性能未提升 (1/10)
+
+Epoch 26/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 26/50 | Train Loss: 0.1250 | Train Acc: 0.9559 | Val Loss: 0.1306 | Val Acc: 0.9531 | LR: 0.000500 | 时间: 76.4秒 | 总耗时: 33.3分钟
+模型性能未提升 (2/10)
+
+Epoch 27/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 27/50 | Train Loss: 0.1249 | Train Acc: 0.9535 | Val Loss: 0.1143 | Val Acc: 0.9591 | LR: 0.000500 | 时间: 76.4秒 | 总耗时: 34.6分钟
+模型性能未提升 (3/10)
+
+Epoch 28/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 28/50 | Train Loss: 0.1368 | Train Acc: 0.9519 | Val Loss: 0.1591 | Val Acc: 0.9291 | LR: 0.000500 | 时间: 76.3秒 | 总耗时: 35.9分钟
+模型性能未提升 (4/10)
+
+Epoch 29/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 29/50 | Train Loss: 0.1307 | Train Acc: 0.9525 | Val Loss: 0.1574 | Val Acc: 0.9496 | LR: 0.000500 | 时间: 76.4秒 | 总耗时: 37.1分钟
+模型性能未提升 (5/10)
+
+Epoch 30/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 30/50 | Train Loss: 0.1428 | Train Acc: 0.9527 | Val Loss: 0.0897 | Val Acc: 0.9646 | LR: 0.000500 | 时间: 76.5秒 | 总耗时: 38.4分钟
+模型性能提升！保存最佳模型 (验证损失: 0.0897)
+
+Epoch 31/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 31/50 | Train Loss: 0.1493 | Train Acc: 0.9472 | Val Loss: 0.2416 | Val Acc: 0.9161 | LR: 0.000500 | 时间: 76.4秒 | 总耗时: 39.7分钟
+模型性能未提升 (1/10)
+
+Epoch 32/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 32/50 | Train Loss: 0.1342 | Train Acc: 0.9534 | Val Loss: 0.1438 | Val Acc: 0.9526 | LR: 0.000500 | 时间: 76.5秒 | 总耗时: 41.0分钟
+模型性能未提升 (2/10)
+
+Epoch 33/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 33/50 | Train Loss: 0.1304 | Train Acc: 0.9560 | Val Loss: 0.1248 | Val Acc: 0.9521 | LR: 0.000500 | 时间: 76.6秒 | 总耗时: 42.2分钟
+模型性能未提升 (3/10)
+
+Epoch 34/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 34/50 | Train Loss: 0.1237 | Train Acc: 0.9585 | Val Loss: 0.1110 | Val Acc: 0.9626 | LR: 0.000500 | 时间: 76.3秒 | 总耗时: 43.5分钟
+模型性能未提升 (4/10)
+
+Epoch 35/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 35/50 | Train Loss: 0.1182 | Train Acc: 0.9550 | Val Loss: 0.1221 | Val Acc: 0.9571 | LR: 0.000500 | 时间: 76.4秒 | 总耗时: 44.8分钟
+模型性能未提升 (5/10)
+
+Epoch 36/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 36/50 | Train Loss: 0.1121 | Train Acc: 0.9582 | Val Loss: 0.1312 | Val Acc: 0.9546 | LR: 0.000250 | 时间: 76.4秒 | 总耗时: 46.1分钟
+模型性能未提升 (6/10)
+
+Epoch 37/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 37/50 | Train Loss: 0.0848 | Train Acc: 0.9709 | Val Loss: 0.1519 | Val Acc: 0.9556 | LR: 0.000250 | 时间: 76.1秒 | 总耗时: 47.3分钟
+模型性能未提升 (7/10)
+
+Epoch 38/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 38/50 | Train Loss: 0.0799 | Train Acc: 0.9742 | Val Loss: 0.3002 | Val Acc: 0.9281 | LR: 0.000250 | 时间: 76.4秒 | 总耗时: 48.6分钟
+模型性能未提升 (8/10)
+
+Epoch 39/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 39/50 | Train Loss: 0.0819 | Train Acc: 0.9735 | Val Loss: 0.1512 | Val Acc: 0.9566 | LR: 0.000250 | 时间: 76.4秒 | 总耗时: 49.9分钟
+模型性能未提升 (9/10)
+
+Epoch 40/50 开始...
+                                                                                                                                                                                                                 
+开始验证...
+                                                                                                                                                                                                                 
+Epoch 40/50 | Train Loss: 0.0780 | Train Acc: 0.9740 | Val Loss: 0.1218 | Val Acc: 0.9646 | LR: 0.000250 | 时间: 76.5秒 | 总耗时: 51.1分钟
+模型性能未提升 (10/10)
+触发早停条件，在第 40 轮停止训练
+
+训练完成！总耗时: 51.1分钟
+最佳验证损失: 0.0897
+模型已保存至 bearing_model.pth
+训练完成，用时: 3070.20 秒
+在测试集上评估模型...
+Test Loss: 0.1301 | Test Acc: 0.9631
+
+Classification Report:
+                        precision    recall  f1-score   support
+
+   healthy_with_pulley       1.00      1.00      1.00        47
+healthy_without_pulley       1.00      1.00      1.00        46
+      inner_0.7mm_100W       1.00      1.00      1.00        57
+      inner_0.7mm_200W       1.00      1.00      1.00        50
+      inner_0.7mm_300W       1.00      1.00      1.00        45
+      inner_0.9mm_100W       0.95      1.00      0.98        61
+      inner_0.9mm_200W       0.85      0.95      0.90        55
+      inner_0.9mm_300W       1.00      0.83      0.91        53
+      inner_1.1mm_100W       0.96      1.00      0.98        54
+      inner_1.1mm_200W       0.96      1.00      0.98        55
+      inner_1.1mm_300W       1.00      0.97      0.98        59
+      inner_1.3mm_100W       1.00      1.00      1.00        57
+      inner_1.3mm_200W       0.98      0.96      0.97        53
+      inner_1.3mm_300W       1.00      0.98      0.99        51
+      inner_1.5mm_100W       1.00      1.00      1.00        52
+      inner_1.5mm_200W       0.97      0.98      0.97        58
+      inner_1.5mm_300W       0.98      0.96      0.97        53
+      inner_1.7mm_100W       1.00      1.00      1.00        55
+      inner_1.7mm_200W       0.96      1.00      0.98        55
+      inner_1.7mm_300W       1.00      0.96      0.98        51
+      outer_0.7mm_100W       0.98      1.00      0.99        52
+      outer_0.7mm_200W       1.00      1.00      1.00        52
+      outer_0.7mm_300W       1.00      1.00      1.00        26
+      outer_0.9mm_100W       1.00      0.34      0.51        56
+      outer_0.9mm_200W       0.58      0.95      0.72        56
+      outer_0.9mm_300W       0.92      0.94      0.93        49
+      outer_1.1mm_100W       1.00      1.00      1.00        54
+      outer_1.1mm_200W       1.00      0.90      0.95        60
+      outer_1.1mm_300W       0.90      1.00      0.95        55
+      outer_1.3mm_100W       0.96      1.00      0.98        53
+      outer_1.3mm_200W       1.00      0.96      0.98        55
+      outer_1.3mm_300W       1.00      1.00      1.00        51
+      outer_1.5mm_100W       1.00      1.00      1.00        52
+      outer_1.5mm_200W       1.00      1.00      1.00        50
+      outer_1.5mm_300W       1.00      1.00      1.00        54
+      outer_1.7mm_100W       1.00      1.00      1.00        54
+      outer_1.7mm_200W       1.00      1.00      1.00        52
+      outer_1.7mm_300W       1.00      0.98      0.99        55
+
+              accuracy                           0.96      2003
+             macro avg       0.97      0.96      0.96      2003
+          weighted avg       0.97      0.96      0.96      2003
+
+计算t-SNE降维...
+C:\Users\82433\.conda\envs\normal_pytorch\lib\site-packages\sklearn\manifold\_t_sne.py:982: FutureWarning: The PCA initialization in TSNE will change to have the standard deviation of PC1 equal to 1e-4 in 1.2. This will ensure better convergence.
+  warnings.warn(
+模型已保存至 bearing_model.pth
+最终测试准确率: 0.9631
