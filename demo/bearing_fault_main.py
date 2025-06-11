@@ -40,7 +40,8 @@ from multi_feature_patchtst import MultiFeaturePatchTSTClassifier
 from se_cnn_resnet_patchtst import (
     SEResNetPatchTSTNoAttention, SEResNetPatchTSTAttention,
     SECNNPatchTSTAttention, SECNNPatchTSTNoAttention,
-    SEOneLayerCNNPatchTSTAttention, SEThreeLayerCNNPatchTSTAttention)
+    SEOneLayerCNNPatchTSTAttention, SEThreeLayerCNNPatchTSTAttention,
+    StandardCNNPatchTSTAttention)
 from lstm_gru_models import (
     PureLSTMClassifier, PureGRUClassifier, 
     LSTMWithAttention, GRUWithAttention
@@ -86,6 +87,7 @@ def parse_arguments():
                                  'cnn_informer_attention', 'cnn_informer_no_attention',
                                  'ltsf_linear',
                                  'patchtst', 'patchtst_no_attention', 'multi_feature_patchtst', 'multiscale_patchtst',
+                                 'standard_cnn_patchtst_attention',
                                  'se_informer', 'se_cnn_informer', 'se_patchtst', 'se_patchtst_no_attention',
                                  'se_resnet_patchtst_attention', 'se_resnet_patchtst_no_attention',
                                  'se_cnn_patchtst_attention', 'se_cnn_patchtst_no_attention',
@@ -99,6 +101,7 @@ def parse_arguments():
                         '原生Informer/轻量CNN-Informer/手动提取特征-Informer/'
                         'CNN-Informer-Attention/CNN-Informer-No-Attention/'
                         'LTSF-Linear/PatchTST/PatchTST无自注意力/多特征融合PatchTST/多尺度特征融合PatchTST/'
+                        'CNN-PatchTST/'
                         'SE-Informer/SE-CNN-Informer/SE-PatchTST/SE-PatchTST无自注意力/'
                         'SE-ResNet-PatchTST-Attention/SE-ResNet-PatchTST-No-Attention/'
                         'SE-CNN-PatchTST-Attention/SE-CNN-PatchTST-No-Attention/'
@@ -438,7 +441,20 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 use_time_features=args.use_time_features,
                 sampling_rate=args.sampling_rate
             )
-
+        elif model_type == 'standard_cnn_patchtst_attention':
+            model = StandardCNNPatchTSTAttention(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                patch_size=args.patch_size,
+                stride=args.patch_stride,
+                d_model=args.patchtst_d_model,
+                n_heads=args.patchtst_n_heads,
+                num_layers=args.patchtst_num_layers,
+                base_filters=args.filters,
+                kernel_size=args.kernel_size,
+                dropout_rate=args.dropout
+            )
         elif model_type == 'se_cnn_patchtst_attention':
             model = SECNNPatchTSTAttention(
                 input_channels=input_channels,
@@ -1047,7 +1063,8 @@ def train_workflow(processor, args, device):
                                                   'lstm_attention', 'gru_attention',
                                                   'vanilla_transformer', 'cnn_transformer', 
                                                   'efficient_transformer', 'conv_transformer',
-                                                  'fixed_informer', 'optimized_transformer', 'lightweight_cnn_transformer']:
+                                                  'fixed_informer', 'optimized_transformer', 'lightweight_cnn_transformer',
+                                                  'standard_cnn_patchtst_attention']:
         visualize_attention_weights(model, test_loader, device)
 
     # 可视化潜在空间（使用t-SNE）- 对所有模型类型
@@ -1214,7 +1231,8 @@ def test_workflow(processor, args, device):
                                                   'lstm_attention', 'gru_attention',
                                                   'vanilla_transformer', 'cnn_transformer', 
                                                   'efficient_transformer', 'conv_transformer',
-                                                  'fixed_informer', 'optimized_transformer', 'lightweight_cnn_transformer']:
+                                                  'fixed_informer', 'optimized_transformer', 'lightweight_cnn_transformer',
+                                                  'standard_cnn_patchtst_attention']:
         visualize_attention_weights(model, test_loader, device)
     # 可视化潜在空间（使用t-SNE）- 对所有模型类型
     visualize_latent_space(model, test_loader, device,

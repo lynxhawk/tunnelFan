@@ -704,3 +704,119 @@ class SEThreeLayerCNNPatchTSTAttention(SECNNPatchTST_Base):
             use_se=use_se,
             se_reduction=se_reduction
         )
+
+
+class StandardCNNPatchTSTAttention(nn.Module):
+    """
+    标准CNN + PatchTST模型（带注意力机制，无SE Block）
+    复用现有的CNNFeatureExtractor和PatchTST模块
+    """
+    def __init__(self, input_channels=3, seq_length=1000, num_classes=38,
+                 patch_size=16, stride=8, d_model=128, n_heads=8, num_layers=3,
+                 base_filters=64, kernel_size=3, dropout_rate=0.3):
+        super(StandardCNNPatchTSTAttention, self).__init__()
+        
+        # 保存基本参数
+        self.input_channels = input_channels
+        self.seq_length = seq_length
+        self.num_classes = num_classes
+        
+        # ===== 标准CNN特征提取器（无SE Block）=====
+        # 复用现有的CNNFeatureExtractor但关闭SE功能
+        self.feature_extractor = CNNFeatureExtractor(
+            input_channels=input_channels,
+            base_filters=base_filters,
+            kernel_size=kernel_size,
+            use_se=False,  # 关键：设置为False，不使用SE Block
+            se_reduction=16  # 这个参数不会被使用
+        )
+        
+        # 计算经过CNN后的序列长度（两次MaxPool，缩小1/4）
+        self.seq_len_after_cnn = seq_length // 4
+        
+        # 计算patch数量
+        self.patch_num = max(1, (self.seq_len_after_cnn - patch_size) // stride + 1)
+        
+        # Patch嵌入 - 复用现有逻辑
+        self.patch_embedding = nn.Conv1d(
+            in_channels=self.feature_extractor.output_channels,
+            out_channels=d_model,
+            kernel_size=patch_size,
+            stride=stride
+        )
+        
+        # PatchTST模块（带注意力）- 复用现有模块
+        self.patchtst = PatchTST(
+            d_model=d_model,
+            patch_num=self.patch_num,
+            n_heads=n_heads,
+            num_layers=num_layers,
+            dropout_rate=dropout_rate
+        )
+        
+        # 分类头 - 简化版本
+        self.classifier = nn.Sequential(
+            nn.Linear(d_model, num_classes)
+        )
+        
+    def forward(self, x):
+        # x: [batch_size, seq_length, input_channels]
+        batch_size = x.size(0)
+        
+        # 调整维度用于CNN
+        x = x.permute(0, 2, 1)  # [batch_size, input_channels, seq_length]
+        
+        # 应用标准CNN特征提取（无SE Block）
+        x = self.feature_extractor(x)  # [batch_size, channels, seq_length/4]
+        
+        # 提取patches
+        x = self.patch_embedding(x)  # [batch_size, d_model, num_patches]
+        
+        # 调整维度用于PatchTST
+        x = x.permute(0, 2, 1)  # [batch_size, num_patches, d_model]
+        
+        # 应用PatchTST模块
+        x, attention_weights = self.patchtst(x)
+        
+        # 全局平均池化
+        x = torch.mean(x, dim=1)  # [batch_size, d_model]
+        
+        # 分类
+        outputs = self.classifier(x)
+        
+        # 将注意力权重调整为与原始序列相同长度 - 复用现有逻辑
+        expanded_attention = torch.zeros(batch_size, self.seq_length, device=x.device)
+        actual_patches = attention_weights.size(1)
+        patch_length = self.seq_length // actual_patches
+        
+        for i in range(actual_patches):
+            start_idx = i * patch_length
+            end_idx = min(start_idx + patch_length, self.seq_length)
+            expanded_attention[:, start_idx:end_idx] = attention_weights[:, i].unsqueeze(1)
+        
+        # 归一化
+        expanded_attention = F.normalize(expanded_attention, p=1, dim=1)
+        
+        return outputs, expanded_attention
+    
+    def get_latent(self, x):
+        """获取潜在表示用于可视化"""
+        # 调整维度用于CNN
+        x = x.permute(0, 2, 1)  # [batch_size, input_channels, seq_length]
+        
+        # 应用标准CNN特征提取
+        x = self.feature_extractor(x)  # [batch_size, channels, seq_length/4]
+        
+        # 提取patches
+        x = self.patch_embedding(x)  # [batch_size, d_model, num_patches]
+        
+        # 调整维度用于PatchTST
+        x = x.permute(0, 2, 1)  # [batch_size, num_patches, d_model]
+        
+        # 应用PatchTST模块
+        x, _ = self.patchtst(x)
+        
+        # 全局平均池化
+        x = torch.mean(x, dim=1)  # [batch_size, d_model]
+        
+        return x
