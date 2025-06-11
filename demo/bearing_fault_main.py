@@ -45,6 +45,12 @@ from lstm_gru_models import (
     PureLSTMClassifier, PureGRUClassifier, 
     LSTMWithAttention, GRUWithAttention
 )
+from transformer_models import (
+    VanillaTransformerClassifier, CNNTransformerClassifier, 
+    EfficientTransformerClassifier, ConvTransformerClassifier,
+    create_vanilla_transformer, create_cnn_transformer,
+    create_efficient_transformer, create_conv_transformer
+)
 
 def parse_arguments():
     """
@@ -72,6 +78,7 @@ def parse_arguments():
                         choices=['cnn_bilstm_attention', 'cnn_bilstm', 'cnn_bigru_attention',
                                  'cnn_attention', 'cnn_model', 'mlp', 'svm',
                                  'pure_lstm', 'pure_gru', 'lstm_attention', 'gru_attention', 
+                                 'vanilla_transformer', 'cnn_transformer', 'efficient_transformer', 'conv_transformer',
                                  'direct_informer', 'light_cnn_informer', 'feature_informer',
                                  'cnn_informer_attention', 'cnn_informer_no_attention',
                                  'ltsf_linear',
@@ -83,7 +90,8 @@ def parse_arguments():
                         default='cnn_bilstm_attention',
                         help='模型类型：CNN-BiLSTM-Attention/CNN-BiLSTM/CNN-BiGRU-Attention/'
                         'CNN(带注意力)/CNN简单版/MLP/SVM/'
-                        '/纯LSTM/纯GRU/LSTM+注意力/GRU+注意力/'
+                        '纯LSTM/纯GRU/LSTM+注意力/GRU+注意力/'
+                        '原生Transformer/CNN-Transformer混合/高效线性Transformer/卷积-Transformer/'
                         '原生Informer/轻量CNN-Informer/手动提取特征-Informer/'
                         'CNN-Informer-Attention/CNN-Informer-No-Attention/'
                         'LTSF-Linear/PatchTST/PatchTST无自注意力/多特征融合PatchTST/多尺度特征融合PatchTST/'
@@ -107,6 +115,20 @@ def parse_arguments():
     parser.add_argument('--bidirectional', action='store_true', default=True,
                         help='是否使用双向LSTM/GRU')
     
+    # 添加Transformer特定参数
+    parser.add_argument('--transformer_d_model', type=int, default=96,
+                        help='Transformer模型维度 (推荐8G显存使用96-128)')
+    parser.add_argument('--transformer_n_heads', type=int, default=6,
+                        help='Transformer注意力头数量 (推荐8G显存使用6-8)')
+    parser.add_argument('--transformer_num_layers', type=int, default=3,
+                        help='Transformer编码器层数 (推荐8G显存使用3-4)')
+    parser.add_argument('--transformer_d_ff', type=int, default=192,
+                        help='Transformer前馈网络维度 (推荐8G显存使用192-256)')
+    parser.add_argument('--memory_efficient', action='store_true', default=True,
+                        help='是否使用内存优化配置 (推荐8G显存开启)')
+    parser.add_argument('--use_linear_attention', action='store_true',
+                        help='是否使用线性注意力机制 (降低内存使用)')
+
     # 添加Informer特定参数
     parser.add_argument('--informer_d_model', type=int, default=256,
                         help='Informer模型维度')
@@ -553,6 +575,57 @@ def create_model(model_type, input_shape, num_classes, args, device):
                 bidirectional=args.bidirectional,
                 attention_dim=args.attention_dim
             )
+        elif model_type == 'vanilla_transformer':
+            model = VanillaTransformerClassifier(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                d_model=args.transformer_d_model,
+                n_heads=args.transformer_n_heads,
+                num_layers=args.transformer_num_layers,
+                d_ff=args.transformer_d_ff,
+                dropout=args.dropout,
+                max_seq_len=seq_length * 2
+            )
+        elif model_type == 'cnn_transformer':
+            model = CNNTransformerClassifier(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                cnn_filters=args.filters // 2 if args.memory_efficient else args.filters,
+                cnn_kernel_size=args.kernel_size,
+                cnn_layers=2,
+                d_model=args.transformer_d_model,
+                n_heads=args.transformer_n_heads,
+                num_layers=args.transformer_num_layers,
+                d_ff=args.transformer_d_ff,
+                dropout=args.dropout,
+                max_seq_len=seq_length
+            )
+        elif model_type == 'efficient_transformer':
+            model = EfficientTransformerClassifier(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                d_model=args.transformer_d_model,
+                n_heads=args.transformer_n_heads,
+                num_layers=args.transformer_num_layers,
+                d_ff=args.transformer_d_ff,
+                dropout=args.dropout,
+                use_linear_attention=args.use_linear_attention
+            )
+        elif model_type == 'conv_transformer':
+            model = ConvTransformerClassifier(
+                input_channels=input_channels,
+                seq_length=seq_length,
+                num_classes=num_classes,
+                conv_channels=args.filters if not args.memory_efficient else args.filters // 2,
+                d_model=args.transformer_d_model,
+                n_heads=args.transformer_n_heads,
+                num_layers=args.transformer_num_layers,
+                d_ff=args.transformer_d_ff,
+                dropout=args.dropout
+            )
         elif model_type == 'multiscale_patchtst':
             # 解析多尺度参数
             patch_sizes = [int(x)
@@ -932,7 +1005,9 @@ def train_workflow(processor, args, device):
 
     # 可视化注意力权重 (对于有意义的注意力机制的模型)
     if not args.use_features and args.model_type in ['cnn_lstm_attention', 'cnn_bigru_attention', 'cnn_attention', 
-                                                  'lstm_attention', 'gru_attention']:
+                                                  'lstm_attention', 'gru_attention',
+                                                  'vanilla_transformer', 'cnn_transformer', 
+                                                  'efficient_transformer', 'conv_transformer']:
         visualize_attention_weights(model, test_loader, device)
 
     # 可视化潜在空间（使用t-SNE）- 对所有模型类型
@@ -1095,7 +1170,10 @@ def test_workflow(processor, args, device):
         visualize_confusion_matrix(cm, class_names)
 
     # 可视化注意力权重（对于有意义的注意力机制的模型）
-    if not config['use_features'] and model_type in ['cnn_lstm_attention', 'cnn_bigru_attention', 'cnn_attention']:
+    if not config['use_features'] and model_type in ['cnn_lstm_attention', 'cnn_bigru_attention', 'cnn_attention', 
+                                                  'lstm_attention', 'gru_attention',
+                                                  'vanilla_transformer', 'cnn_transformer', 
+                                                  'efficient_transformer', 'conv_transformer']:
         visualize_attention_weights(model, test_loader, device)
     # 可视化潜在空间（使用t-SNE）- 对所有模型类型
     visualize_latent_space(model, test_loader, device,
