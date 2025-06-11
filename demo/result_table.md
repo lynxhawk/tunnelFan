@@ -30,6 +30,7 @@ train : val : test = 0.6 : 0.2 : 0.2
 | patchtst_attention  | 98.8%  |
 | se_patchtst  | 97.35%  |
 | se_patchtst_attention  | 99.45%  |
+| cnn_patchtst | 99.35% |
 | se_cnn_patchtst  | 99.9%  |
 | se_onelayercnn_patchtst_attention  | 94.61%  |
 | se_threelayercnn_patchtst_attention  | 99.90%  |
