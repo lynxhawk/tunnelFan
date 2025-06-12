@@ -17,16 +17,21 @@ import warnings
 warnings.filterwarnings('ignore')
 
 from data_loader import BearingDataProcessor
-from models import MLPClassifier, CNNClassifier, create_model
+# 更新后的导入语句
+from models import (
+    MLPClassifier, CNNClassifier, LTSFLinearClassifier, SVMClassifier,
+    create_model, is_svm_model, get_supported_models
+)
 
 
 class BearingClassificationTrainer:
-    """轴承故障分类训练器"""
+    """轴承故障分类训练器 - 支持多种模型类型"""
     
-    def __init__(self, model, device, save_dir='checkpoints'):
+    def __init__(self, model, device, save_dir='checkpoints', model_type='CNN'):
         self.model = model
         self.device = device
         self.save_dir = save_dir
+        self.model_type = model_type.upper()
         self.best_accuracy = 0.0
         self.training_history = {
             'train_loss': [],
@@ -37,9 +42,18 @@ class BearingClassificationTrainer:
         
         # 创建保存目录
         os.makedirs(save_dir, exist_ok=True)
+        
+        # 检查是否为SVM模型
+        self.is_svm = is_svm_model(model)
+        
+        if self.is_svm:
+            print("检测到SVM模型，将使用SVM专用训练流程")
     
     def train_epoch(self, train_loader, criterion, optimizer):
-        """训练一个epoch"""
+        """训练一个epoch - 仅适用于神经网络模型"""
+        if self.is_svm:
+            raise RuntimeError("SVM模型不支持epoch训练，请使用train方法")
+            
         self.model.train()
         total_loss = 0.0
         total_correct = 0
@@ -77,7 +91,10 @@ class BearingClassificationTrainer:
         return avg_loss, avg_acc
     
     def validate_epoch(self, val_loader, criterion):
-        """验证一个epoch"""
+        """验证一个epoch - 仅适用于神经网络模型"""
+        if self.is_svm:
+            raise RuntimeError("SVM模型不支持epoch验证，请使用evaluate方法")
+            
         self.model.eval()
         total_loss = 0.0
         total_correct = 0
@@ -116,16 +133,49 @@ class BearingClassificationTrainer:
         
         return avg_loss, avg_acc, all_predictions, all_labels
     
+    def train_svm(self, train_loader, val_loader, **kwargs):
+        """SVM专用训练方法"""
+        if not self.is_svm:
+            raise RuntimeError("此方法仅适用于SVM模型")
+        
+        print("开始SVM训练...")
+        
+        # 使用SVM的fit_data_loaders方法
+        history = self.model.fit_data_loaders(train_loader, val_loader)
+        
+        # 更新训练历史
+        self.training_history['train_loss'].extend(history['train_loss'])
+        self.training_history['train_acc'].extend(history['train_acc'])
+        self.training_history['val_loss'].extend(history['val_loss'])
+        self.training_history['val_acc'].extend(history['val_acc'])
+        
+        # 更新最佳准确率
+        if history['val_acc'] and len(history['val_acc']) > 0:
+            self.best_accuracy = history['val_acc'][0]
+        elif history['train_acc'] and len(history['train_acc']) > 0:
+            self.best_accuracy = history['train_acc'][0]
+        
+        # 保存SVM模型
+        model_path = os.path.join(self.save_dir, f'svm_best_model_acc_{self.best_accuracy:.4f}.joblib')
+        self.model.save_model(model_path)
+        print(f"SVM模型已保存到: {model_path}")
+        
+        return self.training_history
+    
     def train(self, train_loader, val_loader, num_epochs=100, learning_rate=0.001,
               weight_decay=1e-5, patience=15, save_best=True):
-        """完整训练流程"""
+        """完整训练流程 - 自动适配模型类型"""
         
-        # 定义损失函数和优化器
+        # 如果是SVM模型，使用SVM专用训练
+        if self.is_svm:
+            return self.train_svm(train_loader, val_loader)
+        
+        # 神经网络模型的标准训练流程
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(self.model.parameters(), lr=learning_rate, weight_decay=weight_decay)
         scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=5)
         
-        print(f"开始训练，共 {num_epochs} 个epoch...")
+        print(f"开始训练 {self.model_type} 模型，共 {num_epochs} 个epoch...")
         print(f"设备: {self.device}")
         print(f"模型参数数量: {sum(p.numel() for p in self.model.parameters() if p.requires_grad):,}")
         
@@ -182,6 +232,9 @@ class BearingClassificationTrainer:
     
     def _cleanup_old_models(self):
         """清理旧的最佳模型文件"""
+        if self.is_svm:
+            return  # SVM模型有自己的保存机制
+            
         try:
             # 查找所有以 'best_model' 开头的文件
             best_model_files = [f for f in os.listdir(self.save_dir) if f.startswith('best_model_acc_')]
@@ -197,29 +250,48 @@ class BearingClassificationTrainer:
     
     def save_model(self, filename):
         """保存模型"""
-        save_path = os.path.join(self.save_dir, filename)
-        torch.save({
-            'model_state_dict': self.model.state_dict(),
-            'best_accuracy': self.best_accuracy,
-            'training_history': self.training_history
-        }, save_path)
+        if self.is_svm:
+            # SVM模型使用自己的保存方法
+            save_path = os.path.join(self.save_dir, filename.replace('.pth', '.joblib'))
+            self.model.save_model(save_path)
+        else:
+            # 神经网络模型使用PyTorch保存方法
+            save_path = os.path.join(self.save_dir, filename)
+            torch.save({
+                'model_state_dict': self.model.state_dict(),
+                'best_accuracy': self.best_accuracy,
+                'training_history': self.training_history,
+                'model_type': self.model_type
+            }, save_path)
     
     def load_model(self, filename):
         """加载模型"""
-        load_path = os.path.join(self.save_dir, filename)
-        checkpoint = torch.load(load_path, map_location=self.device)
-        self.model.load_state_dict(checkpoint['model_state_dict'])
-        self.best_accuracy = checkpoint.get('best_accuracy', 0.0)
-        self.training_history = checkpoint.get('training_history', {})
+        if self.is_svm:
+            # SVM模型使用自己的加载方法
+            load_path = os.path.join(self.save_dir, filename.replace('.pth', '.joblib'))
+            self.model.load_model(load_path)
+            # SVM模型需要手动设置best_accuracy
+            self.best_accuracy = 0.0  # 或者从文件名解析
+        else:
+            # 神经网络模型使用PyTorch加载方法
+            load_path = os.path.join(self.save_dir, filename)
+            checkpoint = torch.load(load_path, map_location=self.device)
+            self.model.load_state_dict(checkpoint['model_state_dict'])
+            self.best_accuracy = checkpoint.get('best_accuracy', 0.0)
+            self.training_history = checkpoint.get('training_history', {})
     
     def plot_training_history(self, save_path=None):
         """绘制训练历史"""
+        if self.is_svm:
+            print("SVM模型训练历史较简单，跳过绘图")
+            return
+            
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
         
         # 损失曲线
         ax1.plot(self.training_history['train_loss'], label='Training Loss', color='blue')
         ax1.plot(self.training_history['val_loss'], label='Validation Loss', color='red')
-        ax1.set_title('Training and Validation Loss')
+        ax1.set_title(f'{self.model_type} Training and Validation Loss')
         ax1.set_xlabel('Epoch')
         ax1.set_ylabel('Loss')
         ax1.legend()
@@ -228,7 +300,7 @@ class BearingClassificationTrainer:
         # 准确率曲线
         ax2.plot(self.training_history['train_acc'], label='Training Accuracy', color='blue')
         ax2.plot(self.training_history['val_acc'], label='Validation Accuracy', color='red')
-        ax2.set_title('Training and Validation Accuracy')
+        ax2.set_title(f'{self.model_type} Training and Validation Accuracy')
         ax2.set_xlabel('Epoch')
         ax2.set_ylabel('Accuracy')
         ax2.legend()
@@ -242,17 +314,37 @@ class BearingClassificationTrainer:
 
 
 def evaluate_model(model, test_loader, device, class_names=None, save_results=True, save_dir='checkpoints'):
-    """评估模型性能"""
+    """评估模型性能 - 兼容所有模型类型"""
     model.eval()
     all_predictions = []
     all_labels = []
     all_latent_features = []
     
-    print("正在评估模型...")
-    with torch.no_grad():
+    is_svm = is_svm_model(model)
+    
+    print(f"正在评估{'SVM' if is_svm else 'Neural Network'}模型...")
+    
+    if not is_svm:
+        # 神经网络模型评估
+        with torch.no_grad():
+            for batch_data, batch_labels in tqdm(test_loader):
+                batch_data = batch_data.to(device)
+                batch_labels = batch_labels.squeeze().to(device)
+                
+                outputs, _ = model(batch_data)
+                _, predicted = torch.max(outputs.data, 1)
+                
+                all_predictions.extend(predicted.cpu().numpy())
+                all_labels.extend(batch_labels.cpu().numpy())
+                
+                # 获取潜在特征用于t-SNE可视化
+                if hasattr(model, 'get_latent'):
+                    latent = model.get_latent(batch_data)
+                    all_latent_features.extend(latent.cpu().numpy())
+    else:
+        # SVM模型评估
         for batch_data, batch_labels in tqdm(test_loader):
-            batch_data = batch_data.to(device)
-            batch_labels = batch_labels.squeeze().to(device)
+            batch_labels = batch_labels.squeeze()
             
             outputs, _ = model(batch_data)
             _, predicted = torch.max(outputs.data, 1)
@@ -526,6 +618,13 @@ def visualize_tsne(latent_features, labels, class_names=None, save_results=True,
 
 def save_model(model, filepath, additional_info=None):
     """保存模型"""
+    # 检查是否为SVM模型
+    if is_svm_model(model):
+        # SVM使用自己的保存方法
+        model.save_model(filepath)
+        return
+    
+    # 神经网络模型使用PyTorch保存方法
     save_dict = {
         'model_state_dict': model.state_dict(),
         'model_type': model.__class__.__name__
@@ -540,6 +639,13 @@ def save_model(model, filepath, additional_info=None):
 
 def load_model(model, filepath, device):
     """加载模型"""
+    # 检查是否为SVM模型
+    if is_svm_model(model):
+        # SVM使用自己的加载方法
+        model.load_model(filepath)
+        return model
+    
+    # 神经网络模型使用PyTorch加载方法
     checkpoint = torch.load(filepath, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.to(device)
@@ -558,13 +664,33 @@ def parse_arguments():
     parser.add_argument('--overlap_ratio', type=float, default=0.5,
                        help='窗口重叠比例')
     
-    # 模型相关参数
-    parser.add_argument('--model', type=str, default='CNN', choices=['MLP', 'CNN'],
+    # 模型相关参数 - 增加了新的模型选择
+    parser.add_argument('--model', type=str, default='CNN', 
+                       choices=['MLP', 'CNN', 'LTSF', 'SVM'],
                        help='选择模型类型')
     parser.add_argument('--filters', type=int, default=64,
                        help='CNN滤波器数量')
     parser.add_argument('--dropout', type=float, default=0.3,
                        help='Dropout比率')
+    
+    # LTSF模型特定参数
+    parser.add_argument('--ltsf_hidden_dim', type=int, default=64,
+                       help='LTSF模型隐藏层维度')
+    parser.add_argument('--ltsf_kernel_size', type=int, default=25,
+                       help='LTSF模型分解核大小')
+    parser.add_argument('--ltsf_individual', action='store_true',
+                       help='LTSF模型是否使用独立通道处理')
+    
+    # SVM模型特定参数
+    parser.add_argument('--svm_kernel', type=str, default='rbf',
+                       choices=['rbf', 'linear', 'poly', 'sigmoid'],
+                       help='SVM核函数')
+    parser.add_argument('--svm_C', type=float, default=1.0,
+                       help='SVM正则化参数')
+    parser.add_argument('--svm_gamma', type=str, default='scale',
+                       help='SVM gamma参数')
+    parser.add_argument('--svm_grid_search', action='store_true',
+                       help='是否对SVM进行网格搜索')
     
     # 训练相关参数
     parser.add_argument('--batch_size', type=int, default=64,
@@ -615,6 +741,9 @@ def train_workflow(processor, args, device):
     # 根据模型类型选择数据模式
     if args.model.upper() == 'MLP':
         mode = 'feature'
+    elif args.model.upper() == 'SVM':
+        # SVM可以处理两种数据，默认使用原始信号
+        mode = 'signal'
     else:
         mode = 'signal'
     
@@ -642,30 +771,60 @@ def train_workflow(processor, args, device):
     input_shape = sample_batch[0].shape
     print(f"  - 输入形状: {input_shape}")
     
-    # 创建模型
+    # 创建模型 - 使用统一的create_model函数
     print(f"\n创建 {args.model} 模型...")
-    if args.model.upper() == 'MLP':
-        feature_dim = input_shape[1]
-        model = MLPClassifier(
-            input_dim=feature_dim,
-            num_classes=num_classes,
-            hidden_layers=[512, 256, 128, 64],
-            dropout_rate=args.dropout
-        )
-    elif args.model.upper() == 'CNN':
-        model = CNNClassifier(
-            input_channels=input_shape[2],
-            seq_length=input_shape[1],
-            num_classes=num_classes,
-            base_filters=args.filters,
-            dropout_rate=args.dropout
-        )
+    
+    # 准备模型参数
+    model_kwargs = {
+        'dropout_rate': args.dropout,
+        'base_filters': args.filters,
+    }
+    
+    # 添加LTSF特定参数
+    if args.model.upper() == 'LTSF':
+        model_kwargs.update({
+            'hidden_dim': args.ltsf_hidden_dim,
+            'kernel_size': args.ltsf_kernel_size,
+            'individual': args.ltsf_individual,
+        })
+    
+    # 添加SVM特定参数
+    elif args.model.upper() == 'SVM':
+        model_kwargs.update({
+            'kernel': args.svm_kernel,
+            'C': args.svm_C,
+            'gamma': args.svm_gamma,
+            'use_scaler': True,
+        })
+    
+    # 创建模型
+    model = create_model(
+        model_type=args.model,
+        input_shape=input_shape[1:],  # 去掉batch维度
+        num_classes=num_classes,
+        **model_kwargs
+    )
     
     model = model.to(device)
-    print(f"模型创建完成，参数数量: {sum(p.numel() for p in model.parameters() if p.requires_grad):,}")
+    
+    # 打印模型信息
+    if is_svm_model(model):
+        print(f"SVM模型创建完成")
+        print(f"  - 核函数: {args.svm_kernel}")
+        print(f"  - C参数: {args.svm_C}")
+        print(f"  - Gamma参数: {args.svm_gamma}")
+    else:
+        param_count = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        print(f"神经网络模型创建完成，参数数量: {param_count:,}")
+    
+    # 如果是SVM且需要网格搜索
+    if is_svm_model(model) and args.svm_grid_search:
+        print("\n执行SVM网格搜索...")
+        best_params = model.grid_search(train_loader)
+        print(f"网格搜索完成，最佳参数: {best_params}")
     
     # 创建训练器
-    trainer = BearingClassificationTrainer(model, device, args.save_dir)
+    trainer = BearingClassificationTrainer(model, device, args.save_dir, args.model)
     
     # 开始训练
     print(f"\n开始训练...")
@@ -689,13 +848,16 @@ def train_workflow(processor, args, device):
     print("在测试集上评估最佳模型")
     print("="*60)
     
-    # 加载最佳模型
-    best_model_files = [f for f in os.listdir(args.save_dir) if f.startswith('best_model')]
-    if best_model_files:
-        best_model_file = sorted(best_model_files)[-1]
-        best_model_path = os.path.join(args.save_dir, best_model_file)
-        model = load_model(model, best_model_path, device)
-        print(f"已加载最佳模型: {best_model_file}")
+    # 加载最佳模型（如果不是SVM）
+    if not is_svm_model(model):
+        best_model_files = [f for f in os.listdir(args.save_dir) if f.startswith('best_model')]
+        if best_model_files:
+            best_model_file = sorted(best_model_files)[-1]
+            best_model_path = os.path.join(args.save_dir, best_model_file)
+            model = load_model(model, best_model_path, device)
+            print(f"已加载最佳模型: {best_model_file}")
+    else:
+        print("SVM模型已完成训练，直接评估")
     
     # 评估模型
     test_accuracy, predictions, labels, cm = evaluate_model(
@@ -703,7 +865,11 @@ def train_workflow(processor, args, device):
     )
     
     # 保存最终模型
-    final_model_path = os.path.join(args.save_dir, f'{args.model}_final_model.pth')
+    if is_svm_model(model):
+        final_model_path = os.path.join(args.save_dir, f'{args.model}_final_model.joblib')
+    else:
+        final_model_path = os.path.join(args.save_dir, f'{args.model}_final_model.pth')
+    
     save_model(model, final_model_path, {
         'test_accuracy': test_accuracy,
         'num_classes': num_classes,
@@ -713,7 +879,8 @@ def train_workflow(processor, args, device):
             'model_type': args.model,
             'seq_length': args.seq_length,
             'num_classes': num_classes,
-            'input_shape': list(input_shape)
+            'input_shape': list(input_shape),
+            'model_kwargs': model_kwargs
         }
     })
     
@@ -743,21 +910,37 @@ def test_workflow(processor, args, device):
     print("开始测试工作流")
     print("=" * 60)
     
-    # 加载模型配置
-    model_config_path = os.path.join(args.save_dir, f'{args.model}_final_model.pth')
+    # 确定模型文件路径
+    if args.model.upper() == 'SVM':
+        model_config_path = os.path.join(args.save_dir, f'{args.model}_final_model.joblib')
+    else:
+        model_config_path = os.path.join(args.save_dir, f'{args.model}_final_model.pth')
+    
     if not os.path.exists(model_config_path):
         print(f"错误: 找不到模型文件 {model_config_path}")
         print("请先运行训练模式或指定正确的模型路径")
         return
     
-    # 加载模型
-    checkpoint = torch.load(model_config_path, map_location=device)
-    model_config = checkpoint['model_config']
+    # 加载模型配置
+    if args.model.upper() == 'SVM':
+        # SVM模型配置从结果文件加载
+        results_path = os.path.join(args.save_dir, f'{args.model}_results.json')
+        if os.path.exists(results_path):
+            with open(results_path, 'r', encoding='utf-8') as f:
+                results = json.load(f)
+                model_config = results.get('training_config', {})
+        else:
+            print("警告: 找不到SVM配置文件，使用默认配置")
+            model_config = {'model_type': 'SVM'}
+    else:
+        # 神经网络模型配置从checkpoint加载
+        checkpoint = torch.load(model_config_path, map_location=device)
+        model_config = checkpoint['model_config']
     
     print(f"加载模型配置: {model_config}")
     
     # 准备数据
-    if model_config['model_type'].upper() == 'MLP':
+    if model_config.get('model_type', args.model).upper() == 'MLP':
         mode = 'feature'
     else:
         mode = 'signal'
@@ -771,43 +954,57 @@ def test_workflow(processor, args, device):
     )
     
     # 重建模型
-    if model_config['model_type'].upper() == 'MLP':
-        sample_batch = next(iter(test_loader))
-        feature_dim = sample_batch[0].shape[1]
-        model = MLPClassifier(
-            input_dim=feature_dim,
-            num_classes=model_config['num_classes'],
-            hidden_layers=[512, 256, 128, 64],
-            dropout_rate=args.dropout
-        )
-    elif model_config['model_type'].upper() == 'CNN':
-        model = CNNClassifier(
-            input_channels=model_config['input_shape'][2],
-            seq_length=model_config['input_shape'][1],
-            num_classes=model_config['num_classes'],
-            base_filters=args.filters,
-            dropout_rate=args.dropout
-        )
+    sample_batch = next(iter(test_loader))
+    input_shape = sample_batch[0].shape
+    
+    # 准备模型参数
+    model_kwargs = model_config.get('model_kwargs', {
+        'dropout_rate': args.dropout,
+        'base_filters': args.filters,
+    })
+    
+    model = create_model(
+        model_type=model_config.get('model_type', args.model),
+        input_shape=input_shape[1:],
+        num_classes=model_config.get('num_classes', 38),
+        **model_kwargs
+    )
     
     # 加载权重
     model = load_model(model, model_config_path, device)
     
     # 评估模型
-    class_names = checkpoint.get('class_names', [f'Class_{i}' for i in range(model_config['num_classes'])])
+    if args.model.upper() == 'SVM':
+        class_names = None  # SVM结果文件中可能包含类别名称
+        if 'results' in locals() and 'class_names' in results:
+            class_names = results['class_names']
+    else:
+        checkpoint = torch.load(model_config_path, map_location=device)
+        class_names = checkpoint.get('class_names', [f'Class_{i}' for i in range(model_config['num_classes'])])
+    
     test_accuracy, predictions, labels, cm = evaluate_model(
         model, test_loader, device, class_names, save_results=True, save_dir=args.save_dir
     )
     
     print(f"\n测试完成！")
     print(f"测试准确率: {test_accuracy:.4f}")
-    if 'test_accuracy' in checkpoint:
-        print(f"训练时测试准确率: {checkpoint['test_accuracy']:.4f}")
+    
+    # 显示训练时的测试准确率（如果可用）
+    if args.model.upper() != 'SVM':
+        checkpoint = torch.load(model_config_path, map_location=device)
+        if 'test_accuracy' in checkpoint:
+            print(f"训练时测试准确率: {checkpoint['test_accuracy']:.4f}")
 
 
 def main():
     """主函数"""
     # 解析参数
     args = parse_arguments()
+    
+    # 显示支持的模型
+    supported_models = get_supported_models()
+    print(f"支持的模型类型: {supported_models}")
+    print(f"当前选择的模型: {args.model}")
     
     # 设置随机种子
     torch.manual_seed(args.random_seed)
