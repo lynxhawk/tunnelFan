@@ -17,11 +17,134 @@ import warnings
 warnings.filterwarnings('ignore')
 
 from data_loader import BearingDataProcessor
-# 更新后的导入语句
-from models import (
-    MLPClassifier, CNNClassifier, LTSFLinearClassifier, SVMClassifier,
-    create_model, is_svm_model, get_supported_models
-)
+
+# 导入模型 - 使用直接导入方式
+from models import MLPClassifier, CNNClassifier, create_model
+from ltsf_linear_model import LTSFLinearClassifier, create_ltsf_linear_model
+from svm_model import SVMClassifier, create_svm_model
+from rnn_models import LSTMClassifier, GRUClassifier, create_lstm_model, create_gru_model
+
+
+def is_svm_model(model):
+    """检查是否为SVM模型"""
+    return isinstance(model, SVMClassifier)
+
+
+def get_supported_models():
+    """获取支持的模型列表"""
+    return ['MLP', 'CNN', 'LTSF', 'SVM', 'LSTM', 'GRU']
+
+
+def create_unified_model(model_type, input_shape, num_classes, **kwargs):
+    """统一的模型创建函数"""
+    model_type = model_type.upper()
+    
+    # 处理输入形状
+    if len(input_shape) == 3:  # [batch, seq_length, channels]
+        batch_size, seq_length, input_channels = input_shape
+        input_dim = seq_length * input_channels  # 用于MLP
+    elif len(input_shape) == 2:  # [seq_length, channels] 去掉batch维度
+        seq_length, input_channels = input_shape
+        input_dim = seq_length * input_channels
+    else:  # 特征数据 [features]
+        input_dim = input_shape[0] if len(input_shape) == 1 else input_shape[1]
+        seq_length = 1000  # 默认值
+        input_channels = 1
+    
+    # 提取通用参数
+    dropout_rate = kwargs.get('dropout_rate', 0.3)
+    
+    if model_type == 'MLP':
+        hidden_layers = kwargs.get('hidden_layers', [512, 256, 128])
+        model = MLPClassifier(
+            input_dim=input_dim,
+            num_classes=num_classes,
+            hidden_layers=hidden_layers,
+            dropout_rate=dropout_rate
+        )
+    
+    elif model_type == 'CNN':
+        base_filters = kwargs.get('base_filters', 64)
+        model = CNNClassifier(
+            input_channels=input_channels,
+            seq_length=seq_length,
+            num_classes=num_classes,
+            base_filters=base_filters,
+            dropout_rate=dropout_rate
+        )
+    
+    elif model_type == 'LTSF':
+        hidden_dim = kwargs.get('hidden_dim', 64)
+        kernel_size = kwargs.get('kernel_size', 25)
+        individual = kwargs.get('individual', False)
+        
+        model = create_ltsf_linear_model(
+            input_channels=input_channels,
+            seq_length=seq_length,
+            num_classes=num_classes,
+            hidden_dim=hidden_dim,
+            kernel_size=kernel_size,
+            individual=individual,
+            dropout_rate=dropout_rate
+        )
+    
+    elif model_type == 'SVM':
+        kernel = kwargs.get('kernel', 'rbf')
+        C = kwargs.get('C', 1.0)
+        gamma = kwargs.get('gamma', 'scale')
+        use_scaler = kwargs.get('use_scaler', True)
+        
+        model = create_svm_model(
+            input_channels=input_channels,
+            seq_length=seq_length,
+            num_classes=num_classes,
+            kernel=kernel,
+            C=C,
+            gamma=gamma,
+            use_scaler=use_scaler,
+            dropout_rate=dropout_rate  # SVM会忽略这个参数
+        )
+    
+    elif model_type == 'LSTM':
+        hidden_dim = kwargs.get('hidden_dim', 128)
+        num_layers = kwargs.get('num_layers', 2)
+        bidirectional = kwargs.get('bidirectional', False)
+        attention = kwargs.get('attention', False)
+        model_variant = kwargs.get('model_variant', 'standard')
+        
+        model = create_lstm_model(
+            input_channels=input_channels,
+            seq_length=seq_length,
+            num_classes=num_classes,
+            hidden_dim=hidden_dim,
+            num_layers=num_layers,
+            dropout_rate=dropout_rate,
+            bidirectional=bidirectional,
+            attention=attention,
+            model_variant=model_variant
+        )
+
+    elif model_type == 'GRU':
+        hidden_dim = kwargs.get('hidden_dim', 128)
+        num_layers = kwargs.get('num_layers', 2)
+        bidirectional = kwargs.get('bidirectional', False)
+        attention = kwargs.get('attention', False)
+        
+        model = create_gru_model(
+            input_channels=input_channels,
+            seq_length=seq_length,
+            num_classes=num_classes,
+            hidden_dim=hidden_dim,
+            num_layers=num_layers,
+            dropout_rate=dropout_rate,
+            bidirectional=bidirectional,
+            attention=attention
+        )
+    
+    else:
+        raise ValueError(f"不支持的模型类型: {model_type}")
+    
+    return model
 
 
 class BearingClassificationTrainer:
@@ -503,7 +626,6 @@ def save_aggregation_info(num_classes, save_dir):
         }
     
     # 保存到JSON文件
-    import json
     info_path = os.path.join(save_dir, 'confusion_matrix_aggregation_info.json')
     with open(info_path, 'w', encoding='utf-8') as f:
         json.dump(aggregation_info, f, indent=2, ensure_ascii=False)
@@ -550,7 +672,6 @@ def create_detailed_confusion_analysis(cm, class_names, save_dir):
     }
     
     # 保存分析报告
-    import json
     analysis_path = os.path.join(save_dir, 'confusion_matrix_analysis.json')
     with open(analysis_path, 'w', encoding='utf-8') as f:
         json.dump(analysis, f, indent=2, ensure_ascii=False)
@@ -562,10 +683,6 @@ def create_detailed_confusion_analysis(cm, class_names, save_dir):
     print(f"  总体准确率: {analysis['overall_accuracy']:.4f}")
     print(f"  表现最好的5个类别:")
     for class_id in best_classes:
-        class_name = class_names[class_id] if class_names and class_id < len(class_names) else f"Class_{class_id}"
-        print(f"    类别 {class_id} ({class_name[:20]}...): {class_accuracies[class_id]:.4f}")
-    print(f"  表现最差的5个类别:")
-    for class_id in worst_classes:
         class_name = class_names[class_id] if class_names and class_id < len(class_names) else f"Class_{class_id}"
         print(f"    类别 {class_id} ({class_name[:20]}...): {class_accuracies[class_id]:.4f}")
 
@@ -666,8 +783,8 @@ def parse_arguments():
     
     # 模型相关参数 - 增加了新的模型选择
     parser.add_argument('--model', type=str, default='CNN', 
-                       choices=['MLP', 'CNN', 'LTSF', 'SVM'],
-                       help='选择模型类型')
+                   choices=['MLP', 'CNN', 'LTSF', 'SVM', 'LSTM', 'GRU'],
+                   help='选择模型类型')
     parser.add_argument('--filters', type=int, default=64,
                        help='CNN滤波器数量')
     parser.add_argument('--dropout', type=float, default=0.3,
@@ -692,6 +809,21 @@ def parse_arguments():
     parser.add_argument('--svm_grid_search', action='store_true',
                        help='是否对SVM进行网格搜索')
     
+    # RNN模型通用参数
+    parser.add_argument('--hidden_dim', type=int, default=128,
+                    help='RNN隐藏层维度')
+    parser.add_argument('--num_layers', type=int, default=2,
+                    help='RNN层数')
+    parser.add_argument('--bidirectional', action='store_true',
+                    help='是否使用双向RNN')
+    parser.add_argument('--attention', action='store_true',
+                    help='是否使用注意力机制')
+
+    # LSTM特定参数
+    parser.add_argument('--lstm_variant', type=str, default='standard',
+                    choices=['standard', 'stacked'],
+                    help='LSTM模型变体')
+
     # 训练相关参数
     parser.add_argument('--batch_size', type=int, default=64,
                        help='批次大小')
@@ -744,6 +876,8 @@ def train_workflow(processor, args, device):
     elif args.model.upper() == 'SVM':
         # SVM可以处理两种数据，默认使用原始信号
         mode = 'signal'
+    elif args.model.upper() in ['LSTM', 'GRU']:  # 添加这行
+        mode = 'signal'
     else:
         mode = 'signal'
     
@@ -771,7 +905,7 @@ def train_workflow(processor, args, device):
     input_shape = sample_batch[0].shape
     print(f"  - 输入形状: {input_shape}")
     
-    # 创建模型 - 使用统一的create_model函数
+    # 创建模型 - 使用统一的create_unified_model函数
     print(f"\n创建 {args.model} 模型...")
     
     # 准备模型参数
@@ -796,9 +930,20 @@ def train_workflow(processor, args, device):
             'gamma': args.svm_gamma,
             'use_scaler': True,
         })
+    elif args.model.upper() in ['LSTM', 'GRU']:
+        model_kwargs.update({
+            'hidden_dim': args.hidden_dim,
+            'num_layers': args.num_layers,
+            'bidirectional': args.bidirectional,
+            'attention': args.attention,
+        })
     
+        # LSTM特定参数
+        if args.model.upper() == 'LSTM':
+            model_kwargs['model_variant'] = args.lstm_variant
+
     # 创建模型
-    model = create_model(
+    model = create_unified_model(
         model_type=args.model,
         input_shape=input_shape[1:],  # 去掉batch维度
         num_classes=num_classes,
@@ -823,6 +968,18 @@ def train_workflow(processor, args, device):
         best_params = model.grid_search(train_loader)
         print(f"网格搜索完成，最佳参数: {best_params}")
     
+    else:
+        param_count = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        print(f"{args.model}模型创建完成，参数数量: {param_count:,}")
+        
+        # 打印RNN特定信息
+        if args.model.upper() in ['LSTM', 'GRU']:
+            print(f"  - 隐藏层维度: {args.hidden_dim}")
+            print(f"  - 层数: {args.num_layers}")
+            print(f"  - 双向: {args.bidirectional}")
+            print(f"  - 注意力机制: {args.attention}")
+            if args.model.upper() == 'LSTM':
+                print(f"  - 模型变体: {args.lstm_variant}")
     # 创建训练器
     trainer = BearingClassificationTrainer(model, device, args.save_dir, args.model)
     
@@ -963,7 +1120,7 @@ def test_workflow(processor, args, device):
         'base_filters': args.filters,
     })
     
-    model = create_model(
+    model = create_unified_model(
         model_type=model_config.get('model_type', args.model),
         input_shape=input_shape[1:],
         num_classes=model_config.get('num_classes', 38),
@@ -998,42 +1155,85 @@ def test_workflow(processor, args, device):
 
 def main():
     """主函数"""
-    # 解析参数
-    args = parse_arguments()
-    
-    # 显示支持的模型
-    supported_models = get_supported_models()
-    print(f"支持的模型类型: {supported_models}")
-    print(f"当前选择的模型: {args.model}")
-    
-    # 设置随机种子
-    torch.manual_seed(args.random_seed)
-    np.random.seed(args.random_seed)
-    
-    # 设备选择
-    if args.device == 'auto':
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    else:
-        device = torch.device(args.device)
-    
-    print(f"使用设备: {device}")
-    print(f"随机种子: {args.random_seed}")
-    
-    # 创建保存目录
-    os.makedirs(args.save_dir, exist_ok=True)
-    
-    # 创建数据处理器
-    processor = BearingDataProcessor(
-        data_dir=args.data_dir,
-        seq_length=args.seq_length,
-        overlap_ratio=args.overlap_ratio
-    )
-    
-    # 根据模式执行不同工作流
-    if args.mode == 'train':
-        train_workflow(processor, args, device)
-    elif args.mode == 'test':
-        test_workflow(processor, args, device)
+    try:
+        # 解析参数
+        args = parse_arguments()
+        
+        # 显示支持的模型
+        supported_models = get_supported_models()
+        print(f"支持的模型类型: {supported_models}")
+        print(f"当前选择的模型: {args.model}")
+        
+        # 验证模型选择
+        if args.model.upper() not in supported_models:
+            print(f"错误: 不支持的模型类型 '{args.model}'")
+            print(f"支持的模型: {supported_models}")
+            return
+        
+        # 设置随机种子
+        torch.manual_seed(args.random_seed)
+        np.random.seed(args.random_seed)
+        
+        # 设备选择
+        if args.device == 'auto':
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        else:
+            device = torch.device(args.device)
+        
+        print(f"使用设备: {device}")
+        print(f"随机种子: {args.random_seed}")
+        
+        # 创建保存目录
+        os.makedirs(args.save_dir, exist_ok=True)
+        
+        # 验证数据目录是否存在
+        if not os.path.exists(args.data_dir):
+            print(f"错误: 数据目录不存在: {args.data_dir}")
+            print("请检查数据路径或使用 --data_dir 参数指定正确的路径")
+            return
+        
+        # 创建数据处理器
+        try:
+            processor = BearingDataProcessor(
+                data_dir=args.data_dir,
+                seq_length=args.seq_length,
+                overlap_ratio=args.overlap_ratio
+            )
+            print("数据处理器创建成功")
+        except Exception as e:
+            print(f"错误: 创建数据处理器失败: {e}")
+            print("请检查数据目录结构和BearingDataProcessor类的实现")
+            return
+        
+        # 根据模式执行不同工作流
+        if args.mode == 'train':
+            print(f"\n开始训练模式 - 模型: {args.model}")
+            train_workflow(processor, args, device)
+        elif args.mode == 'test':
+            print(f"\n开始测试模式 - 模型: {args.model}")
+            test_workflow(processor, args, device)
+        else:
+            print(f"错误: 未知的运行模式: {args.mode}")
+            print("支持的模式: train, test")
+            return
+            
+        print("\n程序执行完成！")
+        
+    except KeyboardInterrupt:
+        print("\n\n程序被用户中断")
+    except ImportError as e:
+        print(f"\n导入错误: {e}")
+        print("请确保以下文件存在:")
+        print("  - data_loader.py (包含 BearingDataProcessor)")
+        print("  - models.py (包含 MLPClassifier, CNNClassifier)")
+        print("  - ltsf_linear_model.py (包含 LTSFLinearClassifier)")
+        print("  - svm_model.py (包含 SVMClassifier)")
+        print("  - rnn_models.py (包含 LSTMClassifier, GRUClassifier)")
+    except Exception as e:
+        print(f"\n运行时错误: {e}")
+        print("请检查配置和数据文件")
+        import traceback
+        traceback.print_exc()
 
 
 if __name__ == "__main__":
