@@ -16,7 +16,7 @@ from pytorch_cnn_bilstm_attention import (
     visualize_learning_curves, visualize_confusion_matrix,
     visualize_attention_weights, save_model, load_model
 )
-from pytorch_data_processing import BearingDataProcessor
+from pytorch_data_processing import BearingDataProcessor,BearingDataset
 
 # 导入新添加的模型
 from mlp_model import MLPClassifier
@@ -1095,7 +1095,7 @@ def train_workflow(processor, args, device):
 
 def test_workflow(processor, args, device):
     """
-    测试工作流
+    修复后的测试工作流 - 解决广播错误
 
     参数:
     - processor: 数据处理器
@@ -1135,10 +1135,9 @@ def test_workflow(processor, args, device):
     print(f"数据中存在的类别: {unique_classes}")
     print(f"存在的类别数量: {len(unique_classes)}")
 
-    # 获取类别名称列表，确保只包含存在于数据中的类别
+    # 获取类别名称列表
     class_names = []
     for i in unique_classes:
-        # 找到标签映射中与此索引对应的名称
         for name, idx in label_map.items():
             if int(idx) == i:
                 class_names.append(name)
@@ -1151,21 +1150,94 @@ def test_workflow(processor, args, device):
     # 分割数据（只取测试集）
     _, _, X_test, _, _, y_test = processor.split_data(X, y)
 
-    # 加载归一化参数
-
+    # 修复归一化问题
+    from sklearn.preprocessing import StandardScaler
+    
     try:
         mean = np.load('normalization_mean.npy')
         std = np.load('normalization_std.npy')
+        print(f"加载的归一化参数 - mean形状: {mean.shape}, std形状: {std.shape}")
+        
+        # 检查并修复归一化参数的形状
+        if config['use_features']:
+            # 对于特征数据，期望的形状应该是 (feature_dim,)
+            expected_shape = (config['feature_dim'],)
+            if mean.shape != expected_shape:
+                print(f"警告：归一化参数形状不匹配。期望: {expected_shape}, 实际: {mean.shape}")
+                print("将重新计算归一化参数...")
+                raise FileNotFoundError("形状不匹配，重新计算")
+        else:
+            # 对于原始信号数据，期望的形状应该是 (input_channels,) = (3,)
+            expected_shape = (config['input_channels'],)
+            if mean.shape != expected_shape:
+                print(f"警告：归一化参数形状不匹配。期望: {expected_shape}, 实际: {mean.shape}")
+                
+                # 尝试修复形状问题
+                if mean.shape[0] == config['seq_length'] * config['input_channels']:
+                    # 如果是按 (seq_length * input_channels,) 保存的，需要重新计算
+                    print("检测到旧版本的归一化参数格式，将重新计算...")
+                    raise FileNotFoundError("格式不匹配，重新计算")
+                elif len(mean.shape) > 1:
+                    # 如果是多维数组，尝试取最后几个维度
+                    if mean.shape[-1] == config['input_channels']:
+                        mean = mean[-config['input_channels']:]
+                        std = std[-config['input_channels']:]
+                        print(f"修复后的归一化参数形状 - mean: {mean.shape}, std: {std.shape}")
+                    else:
+                        raise FileNotFoundError("无法修复形状，重新计算")
+        
+        # 重新创建并配置scaler
+        processor.scaler = StandardScaler()
         processor.scaler.mean_ = mean
         processor.scaler.scale_ = std
-    except FileNotFoundError:
-        print("警告：找不到归一化参数文件。将使用测试数据进行拟合，可能导致性能下降。")
+        processor.scaler.n_features_in_ = len(mean)
+        processor.scaler.n_samples_seen_ = 1000
+        
+        # 手动归一化测试数据
+        if config['use_features']:
+            # 对于特征数据
+            X_test_norm = (X_test - mean) / std
+        else:
+            # 对于原始信号数据
+            original_shape = X_test.shape  # (samples, time_steps, channels)
+            X_test_reshaped = X_test.reshape(-1, X_test.shape[-1])  # (samples*time_steps, channels)
+            
+            print(f"重塑后的测试数据形状: {X_test_reshaped.shape}")
+            print(f"归一化参数形状 - mean: {mean.shape}, std: {std.shape}")
+            
+            # 确保广播兼容
+            if X_test_reshaped.shape[1] == mean.shape[0]:
+                X_test_normalized = (X_test_reshaped - mean) / std
+                X_test_norm = X_test_normalized.reshape(original_shape)
+            else:
+                raise ValueError(f"数据通道数 {X_test_reshaped.shape[1]} 与归一化参数维度 {mean.shape[0]} 不匹配")
+            
+    except (FileNotFoundError, ValueError) as e:
+        print(f"归一化参数问题: {e}")
+        print("将使用测试数据重新计算归一化参数（注意：这可能导致性能下降）")
+        
+        # 重新创建scaler并用测试数据拟合
+        processor.scaler = StandardScaler()
+        
+        if config['use_features']:
+            # 对于特征数据
+            X_test_norm = processor.scaler.fit_transform(X_test)
+        else:
+            # 对于原始信号数据
+            original_shape = X_test.shape
+            X_test_reshaped = X_test.reshape(-1, X_test.shape[-1])
+            X_test_normalized = processor.scaler.fit_transform(X_test_reshaped)
+            X_test_norm = X_test_normalized.reshape(original_shape)
+            
+        # 保存重新计算的归一化参数
+        np.save('normalization_mean_test.npy', processor.scaler.mean_)
+        np.save('normalization_std_test.npy', processor.scaler.scale_)
+        print("已保存基于测试数据的归一化参数到 *_test.npy 文件")
 
-    # 归一化数据
-    X_test_norm, = processor.normalize_data(X_test)
+    print(f"归一化后的测试数据形状: {X_test_norm.shape}")
 
     # 创建测试数据加载器
-    test_dataset = processor.BearingDataset(X_test_norm, y_test)
+    test_dataset = BearingDataset(X_test_norm, y_test)
     test_loader = torch.utils.data.DataLoader(
         test_dataset, batch_size=args.batch_size)
 
@@ -1234,11 +1306,59 @@ def test_workflow(processor, args, device):
                                                   'fixed_informer', 'optimized_transformer', 'lightweight_cnn_transformer',
                                                   'standard_cnn_patchtst_attention']:
         visualize_attention_weights(model, test_loader, device)
-    # 可视化潜在空间（使用t-SNE）- 对所有模型类型
+    
+    # 可视化潜在空间（使用t-SNE）
     visualize_latent_space(model, test_loader, device,
                            config['num_classes'], all_labels)
 
     print(f"测试准确率: {test_acc:.4f}")
+
+
+# 额外的修复函数：重新生成正确的归一化参数
+def fix_normalization_parameters(data_dir, window_size=1000, overlap=0.5, use_features=False):
+    """
+    重新生成正确的归一化参数
+    
+    参数:
+    - data_dir: 数据目录
+    - window_size: 窗口大小
+    - overlap: 重叠比例
+    - use_features: 是否使用特征
+    """
+    print("重新生成归一化参数...")
+    
+    # 创建数据处理器
+    from pytorch_data_processing import BearingDataProcessor
+    processor = BearingDataProcessor(
+        data_dir=data_dir,
+        window_size=window_size,
+        overlap=overlap,
+        sampling_rate=10000
+    )
+    
+    # 加载数据
+    X, y, label_map = processor.prepare_dataset(
+        augment=False,
+        use_features=use_features
+    )
+    
+    # 分割数据
+    X_train, X_val, X_test, y_train, y_val, y_test = processor.split_data(X, y)
+    
+    # 重新计算归一化参数
+    X_train_norm, X_val_norm, X_test_norm = processor.normalize_data(
+        X_train, X_val, X_test)
+    
+    # 保存正确的归一化参数
+    np.save('normalization_mean_fixed.npy', processor.scaler.mean_)
+    np.save('normalization_std_fixed.npy', processor.scaler.scale_)
+    
+    print(f"已生成正确的归一化参数:")
+    print(f"  mean形状: {processor.scaler.mean_.shape}")
+    print(f"  std形状: {processor.scaler.scale_.shape}")
+    print(f"  保存到 normalization_*_fixed.npy")
+    
+    return processor.scaler.mean_, processor.scaler.scale_
 
 
 def predict_workflow(processor, args, device):
