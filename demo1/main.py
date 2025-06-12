@@ -23,6 +23,14 @@ from models import MLPClassifier, CNNClassifier, create_model
 from ltsf_linear_model import LTSFLinearClassifier, create_ltsf_linear_model
 from svm_model import SVMClassifier, create_svm_model
 from rnn_models import LSTMClassifier, GRUClassifier, create_lstm_model, create_gru_model
+# 在现有导入后添加：
+from transformer_models import TransformerClassifier, CNNTransformerClassifier, create_transformer_model, create_cnn_transformer_model
+# 在现有导入后添加：
+from se_cnn_patchtst_models import (
+    SECNNPatchTSTStandard, SECNNPatchTSTOneLayer, SECNNPatchTSTThreeLayer, StandardCNNPatchTST,
+    create_se_cnn_patchtst_standard, create_se_cnn_patchtst_one_layer, 
+    create_se_cnn_patchtst_three_layer, create_standard_cnn_patchtst
+)
 
 
 def is_svm_model(model):
@@ -32,7 +40,8 @@ def is_svm_model(model):
 
 def get_supported_models():
     """获取支持的模型列表"""
-    return ['MLP', 'CNN', 'LTSF', 'SVM', 'LSTM', 'GRU']
+    return ['MLP', 'CNN', 'LTSF', 'SVM', 'LSTM', 'GRU', 'TRANSFORMER', 'CNN_TRANSFORMER',
+            'SE_CNN_PATCHTST', 'SE_CNN_PATCHTST_ONE', 'SE_CNN_PATCHTST_THREE', 'CNN_PATCHTST']
 
 
 def create_unified_model(model_type, input_shape, num_classes, **kwargs):
@@ -140,7 +149,143 @@ def create_unified_model(model_type, input_shape, num_classes, **kwargs):
             bidirectional=bidirectional,
             attention=attention
         )
+    elif model_type == 'TRANSFORMER':
+        d_model = kwargs.get('d_model', 128)
+        nhead = kwargs.get('nhead', 8)
+        num_layers = kwargs.get('transformer_layers', 4)
+        dim_feedforward = kwargs.get('dim_feedforward', 256)
+        
+        model = create_transformer_model(
+            input_channels=input_channels,
+            seq_length=seq_length,
+            num_classes=num_classes,
+            d_model=d_model,
+            nhead=nhead,
+            num_layers=num_layers,
+            dim_feedforward=dim_feedforward,
+            dropout_rate=dropout_rate
+        )
+
+    elif model_type == 'CNN_TRANSFORMER':
+        d_model = kwargs.get('d_model', 128)
+        nhead = kwargs.get('nhead', 8)
+        num_transformer_layers = kwargs.get('transformer_layers', 3)
+        dim_feedforward = kwargs.get('dim_feedforward', 256)
+        cnn_filters = kwargs.get('cnn_filters', 32)
+        cnn_kernel_size = kwargs.get('cnn_kernel_size', 7)
+        cnn_layers = kwargs.get('cnn_layers', 2)
+        pool_size = kwargs.get('pool_size', 4)
+        
+        model = create_cnn_transformer_model(
+            input_channels=input_channels,
+            seq_length=seq_length,
+            num_classes=num_classes,
+            cnn_filters=cnn_filters,
+            cnn_kernel_size=cnn_kernel_size,
+            cnn_layers=cnn_layers,
+            d_model=d_model,
+            nhead=nhead,
+            num_transformer_layers=num_transformer_layers,
+            dim_feedforward=dim_feedforward,
+            dropout_rate=dropout_rate,
+            pool_size=pool_size
+        )
     
+    elif model_type == 'SE_CNN_PATCHTST':
+        patch_size = kwargs.get('patch_size', 16)
+        stride = kwargs.get('stride', 8)
+        d_model = kwargs.get('d_model', 128)
+        nhead = kwargs.get('nhead', 8)
+        num_layers = kwargs.get('transformer_layers', 3)
+        base_filters = kwargs.get('base_filters', 32)
+        se_reduction = kwargs.get('se_reduction', 8)
+        use_se = kwargs.get('use_se', True)
+        
+        model = create_se_cnn_patchtst_standard(
+            input_channels=input_channels,
+            seq_length=seq_length,
+            num_classes=num_classes,
+            patch_size=patch_size,
+            stride=stride,
+            d_model=d_model,
+            n_heads=nhead,
+            num_layers=num_layers,
+            base_filters=base_filters,
+            dropout_rate=dropout_rate,
+            use_se=use_se,
+            se_reduction=se_reduction
+        )
+
+    elif model_type == 'SE_CNN_PATCHTST_ONE':
+        patch_size = kwargs.get('patch_size', 16)
+        stride = kwargs.get('stride', 8)
+        d_model = kwargs.get('d_model', 128)
+        nhead = kwargs.get('nhead', 8)
+        num_layers = kwargs.get('transformer_layers', 3)
+        base_filters = kwargs.get('base_filters', 32)
+        se_reduction = kwargs.get('se_reduction', 8)
+        use_se = kwargs.get('use_se', True)
+        
+        model = create_se_cnn_patchtst_one_layer(
+            input_channels=input_channels,
+            seq_length=seq_length,
+            num_classes=num_classes,
+            patch_size=patch_size,
+            stride=stride,
+            d_model=d_model,
+            n_heads=nhead,
+            num_layers=num_layers,
+            base_filters=base_filters,
+            dropout_rate=dropout_rate,
+            use_se=use_se,
+            se_reduction=se_reduction
+        )
+
+    elif model_type == 'SE_CNN_PATCHTST_THREE':
+        patch_size = kwargs.get('patch_size', 16)
+        stride = kwargs.get('stride', 8)
+        d_model = kwargs.get('d_model', 128)
+        nhead = kwargs.get('nhead', 8)
+        num_layers = kwargs.get('transformer_layers', 3)
+        base_filters = kwargs.get('base_filters', 32)
+        se_reduction = kwargs.get('se_reduction', 8)
+        use_se = kwargs.get('use_se', True)
+        
+        model = create_se_cnn_patchtst_three_layer(
+            input_channels=input_channels,
+            seq_length=seq_length,
+            num_classes=num_classes,
+            patch_size=patch_size,
+            stride=stride,
+            d_model=d_model,
+            n_heads=nhead,
+            num_layers=num_layers,
+            base_filters=base_filters,
+            dropout_rate=dropout_rate,
+            use_se=use_se,
+            se_reduction=se_reduction
+        )
+
+    elif model_type == 'CNN_PATCHTST':
+        patch_size = kwargs.get('patch_size', 16)
+        stride = kwargs.get('stride', 8)
+        d_model = kwargs.get('d_model', 128)
+        nhead = kwargs.get('nhead', 8)
+        num_layers = kwargs.get('transformer_layers', 3)
+        base_filters = kwargs.get('base_filters', 32)
+        
+        model = create_standard_cnn_patchtst(
+            input_channels=input_channels,
+            seq_length=seq_length,
+            num_classes=num_classes,
+            patch_size=patch_size,
+            stride=stride,
+            d_model=d_model,
+            n_heads=nhead,
+            num_layers=num_layers,
+            base_filters=base_filters,
+            dropout_rate=dropout_rate
+        )
     else:
         raise ValueError(f"不支持的模型类型: {model_type}")
     
@@ -783,7 +928,8 @@ def parse_arguments():
     
     # 模型相关参数 - 增加了新的模型选择
     parser.add_argument('--model', type=str, default='CNN', 
-                   choices=['MLP', 'CNN', 'LTSF', 'SVM', 'LSTM', 'GRU'],
+                   choices=['MLP', 'CNN', 'LTSF', 'SVM', 'LSTM', 'GRU', 'TRANSFORMER', 'CNN_TRANSFORMER',
+                           'SE_CNN_PATCHTST', 'SE_CNN_PATCHTST_ONE', 'SE_CNN_PATCHTST_THREE', 'CNN_PATCHTST'],
                    help='选择模型类型')
     parser.add_argument('--filters', type=int, default=64,
                        help='CNN滤波器数量')
@@ -824,6 +970,36 @@ def parse_arguments():
                     choices=['standard', 'stacked'],
                     help='LSTM模型变体')
 
+    # Transformer模型参数
+    parser.add_argument('--d_model', type=int, default=128,
+                    help='Transformer模型维度')
+    parser.add_argument('--nhead', type=int, default=8,
+                    help='Transformer注意力头数')
+    parser.add_argument('--transformer_layers', type=int, default=4,
+                    help='Transformer层数')
+    parser.add_argument('--dim_feedforward', type=int, default=256,
+                    help='Transformer前馈网络维度')
+
+    # CNN-Transformer特定参数
+    parser.add_argument('--cnn_filters', type=int, default=32,
+                    help='CNN-Transformer中CNN滤波器数量')
+    parser.add_argument('--cnn_kernel_size', type=int, default=7,
+                    help='CNN-Transformer中CNN核大小')
+    parser.add_argument('--cnn_layers', type=int, default=2,
+                    help='CNN-Transformer中CNN层数')
+    parser.add_argument('--pool_size', type=int, default=4,
+                    help='CNN-Transformer中池化大小')
+    
+    # PatchTST模型参数
+    parser.add_argument('--patch_size', type=int, default=16,
+                    help='PatchTST模型patch大小')
+    parser.add_argument('--stride', type=int, default=8,
+                    help='PatchTST模型patch步长')
+    parser.add_argument('--se_reduction', type=int, default=8,
+                    help='SE Block的降维比例')
+    parser.add_argument('--use_se', action='store_true', default=True,
+                    help='是否使用SE Block')
+    
     # 训练相关参数
     parser.add_argument('--batch_size', type=int, default=64,
                        help='批次大小')
@@ -876,7 +1052,8 @@ def train_workflow(processor, args, device):
     elif args.model.upper() == 'SVM':
         # SVM可以处理两种数据，默认使用原始信号
         mode = 'signal'
-    elif args.model.upper() in ['LSTM', 'GRU']:  # 添加这行
+    elif args.model.upper() in ['LSTM', 'GRU', 'TRANSFORMER', 'CNN_TRANSFORMER', 
+                           'SE_CNN_PATCHTST', 'SE_CNN_PATCHTST_ONE', 'SE_CNN_PATCHTST_THREE', 'CNN_PATCHTST']:  # 添加这行
         mode = 'signal'
     else:
         mode = 'signal'
@@ -942,6 +1119,34 @@ def train_workflow(processor, args, device):
         if args.model.upper() == 'LSTM':
             model_kwargs['model_variant'] = args.lstm_variant
 
+    elif args.model.upper() in ['TRANSFORMER', 'CNN_TRANSFORMER']:
+        model_kwargs.update({
+            'd_model': args.d_model,
+            'nhead': args.nhead,
+            'transformer_layers': args.transformer_layers,
+            'dim_feedforward': args.dim_feedforward,
+        })
+    
+        # CNN-Transformer特定参数
+        if args.model.upper() == 'CNN_TRANSFORMER':
+            model_kwargs.update({
+                'cnn_filters': args.cnn_filters,
+                'cnn_kernel_size': args.cnn_kernel_size,
+                'cnn_layers': args.cnn_layers,
+                'pool_size': args.pool_size,
+            })
+
+    elif args.model.upper() in ['SE_CNN_PATCHTST', 'SE_CNN_PATCHTST_ONE', 'SE_CNN_PATCHTST_THREE', 'CNN_PATCHTST']:
+        model_kwargs.update({
+            'patch_size': args.patch_size,
+            'stride': args.stride,
+            'd_model': args.d_model,
+            'nhead': args.nhead,
+            'transformer_layers': args.transformer_layers,
+            'base_filters': args.filters,
+            'se_reduction': args.se_reduction,
+            'use_se': args.use_se,
+        })
     # 创建模型
     model = create_unified_model(
         model_type=args.model,
@@ -980,6 +1185,25 @@ def train_workflow(processor, args, device):
             print(f"  - 注意力机制: {args.attention}")
             if args.model.upper() == 'LSTM':
                 print(f"  - 模型变体: {args.lstm_variant}")
+        elif args.model.upper() in ['TRANSFORMER', 'CNN_TRANSFORMER']:
+            print(f"  - 模型维度: {args.d_model}")
+            print(f"  - 注意力头数: {args.nhead}")
+            print(f"  - Transformer层数: {args.transformer_layers}")
+            print(f"  - 前馈网络维度: {args.dim_feedforward}")
+            if args.model.upper() == 'CNN_TRANSFORMER':
+                print(f"  - CNN滤波器数: {args.cnn_filters}")
+                print(f"  - CNN层数: {args.cnn_layers}")
+                print(f"  - 池化大小: {args.pool_size}")
+        elif args.model.upper() in ['SE_CNN_PATCHTST', 'SE_CNN_PATCHTST_ONE', 'SE_CNN_PATCHTST_THREE', 'CNN_PATCHTST']:
+            print(f"  - Patch大小: {args.patch_size}")
+            print(f"  - Patch步长: {args.stride}")
+            print(f"  - 模型维度: {args.d_model}")
+            print(f"  - 注意力头数: {args.nhead}")
+            print(f"  - Transformer层数: {args.transformer_layers}")
+            print(f"  - CNN滤波器数: {args.filters}")
+            if 'SE_CNN' in args.model.upper():
+                print(f"  - 使用SE Block: {args.use_se}")
+                print(f"  - SE降维比例: {args.se_reduction}")
     # 创建训练器
     trainer = BearingClassificationTrainer(model, device, args.save_dir, args.model)
     
@@ -1229,6 +1453,9 @@ def main():
         print("  - ltsf_linear_model.py (包含 LTSFLinearClassifier)")
         print("  - svm_model.py (包含 SVMClassifier)")
         print("  - rnn_models.py (包含 LSTMClassifier, GRUClassifier)")
+        print("  - transformer_models.py (包含 TransformerClassifier, CNNTransformerClassifier)")
+        print("  - se_cnn_patchtst_models.py (包含 SE-CNN-PatchTST系列模型)")
+
     except Exception as e:
         print(f"\n运行时错误: {e}")
         print("请检查配置和数据文件")
