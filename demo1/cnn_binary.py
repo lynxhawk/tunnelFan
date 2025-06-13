@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report
@@ -174,12 +174,19 @@ class BinaryBearingTrainer:
             weight_decay=weight_decay
         )
         
-        # 学习率调度器
-        self.scheduler = ReduceLROnPlateau(
-            self.optimizer, mode='min', factor=0.5, patience=10, verbose=True
-        )
+        # 学习率调度器 - 兼容版本
+        try:
+            self.scheduler = ReduceLROnPlateau(
+                self.optimizer, mode='min', factor=0.5, patience=10, verbose=True
+            )
+        except TypeError:
+            # 如果verbose参数不支持，则使用不带verbose的版本
+            self.scheduler = ReduceLROnPlateau(
+                self.optimizer, mode='min', factor=0.5, patience=10
+            )
+            print("⚠️  使用不带verbose的学习率调度器")
         
-        # 损失函数（处理类别不平衡）
+        # 损失函数
         self.criterion = nn.CrossEntropyLoss()
         
         # 训练历史
@@ -289,22 +296,12 @@ class BinaryBearingTrainer:
     
     def train(self, train_loader, val_loader, epochs=100, early_stopping_patience=15,
               save_best_model=True, model_save_path='best_binary_model.pth'):
-        """
-        训练模型
-        
-        参数:
-        - train_loader: 训练数据加载器
-        - val_loader: 验证数据加载器
-        - epochs: 训练轮数
-        - early_stopping_patience: 早停耐心值
-        - save_best_model: 是否保存最佳模型
-        - model_save_path: 模型保存路径
-        """
+        """训练模型"""
         
         print("🚀 开始训练二分类CNN模型")
         print("=" * 60)
         
-        # 计算类别权重
+        # 计算类别权重  
         class_weights = self.calculate_class_weights(train_loader)
         self.criterion = nn.CrossEntropyLoss(weight=class_weights)
         
@@ -329,8 +326,13 @@ class BinaryBearingTrainer:
             val_loss, val_acc = self.validate_epoch(val_loader)
             
             # 学习率调度
+            old_lr = self.optimizer.param_groups[0]['lr']
             self.scheduler.step(val_loss)
             current_lr = self.optimizer.param_groups[0]['lr']
+            
+            # 手动输出学习率变化
+            if current_lr != old_lr:
+                print(f"    📉 学习率从 {old_lr:.2e} 降低到 {current_lr:.2e}")
             
             # 记录历史
             self.train_history['train_loss'].append(train_loss)
@@ -382,13 +384,7 @@ class BinaryBearingTrainer:
             print(f"✅ 已加载最佳模型权重")
     
     def evaluate(self, test_loader, class_names=['Normal', 'Fault']):
-        """
-        评估模型性能
-        
-        参数:
-        - test_loader: 测试数据加载器
-        - class_names: 类别名称
-        """
+        """评估模型性能"""
         print("\n🧪 开始模型评估...")
         
         self.model.eval()
@@ -448,60 +444,66 @@ class BinaryBearingTrainer:
     
     def plot_confusion_matrix(self, cm, class_names):
         """绘制混淆矩阵"""
-        plt.figure(figsize=(8, 6))
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
-                   xticklabels=class_names, yticklabels=class_names)
-        plt.title('Confusion Matrix')
-        plt.xlabel('Predicted Label')
-        plt.ylabel('True Label')
-        plt.tight_layout()
-        plt.savefig('confusion_matrix.png', dpi=300, bbox_inches='tight')
-        plt.show()
+        try:
+            plt.figure(figsize=(8, 6))
+            sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+                       xticklabels=class_names, yticklabels=class_names)
+            plt.title('Confusion Matrix')
+            plt.xlabel('Predicted Label')
+            plt.ylabel('True Label')
+            plt.tight_layout()
+            plt.savefig('confusion_matrix.png', dpi=300, bbox_inches='tight')
+            plt.show()
+        except Exception as e:
+            print(f"⚠️  无法生成混淆矩阵图: {e}")
     
     def plot_training_history(self):
         """绘制训练历史"""
-        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 10))
-        
-        # 损失曲线
-        ax1.plot(self.train_history['train_loss'], label='Train Loss', color='blue')
-        ax1.plot(self.train_history['val_loss'], label='Val Loss', color='red')
-        ax1.set_title('Training and Validation Loss')
-        ax1.set_xlabel('Epoch')
-        ax1.set_ylabel('Loss')
-        ax1.legend()
-        ax1.grid(True)
-        
-        # 准确率曲线
-        ax2.plot([acc*100 for acc in self.train_history['train_acc']], 
-                label='Train Acc', color='blue')
-        ax2.plot([acc*100 for acc in self.train_history['val_acc']], 
-                label='Val Acc', color='red')
-        ax2.set_title('Training and Validation Accuracy')
-        ax2.set_xlabel('Epoch')
-        ax2.set_ylabel('Accuracy (%)')
-        ax2.legend()
-        ax2.grid(True)
-        
-        # 学习率曲线
-        ax3.plot(self.train_history['learning_rates'], color='green')
-        ax3.set_title('Learning Rate Schedule')
-        ax3.set_xlabel('Epoch')
-        ax3.set_ylabel('Learning Rate')
-        ax3.set_yscale('log')
-        ax3.grid(True)
-        
-        # 验证精度改善
-        best_val_acc = [max(self.train_history['val_acc'][:i+1]) 
-                       for i in range(len(self.train_history['val_acc']))]
-        ax4.plot([acc*100 for acc in best_val_acc], color='purple')
-        ax4.set_title('Best Validation Accuracy Progress')
-        ax4.set_xlabel('Epoch')
-        ax4.set_ylabel('Best Val Accuracy (%)')
-        ax4.grid(True)
-        
-        plt.tight_layout()
-        plt.savefig('training_history.png', dpi=300, bbox_inches='tight')
-        plt.show()
+        try:
+            fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 10))
+            
+            # 损失曲线
+            ax1.plot(self.train_history['train_loss'], label='Train Loss', color='blue')
+            ax1.plot(self.train_history['val_loss'], label='Val Loss', color='red')
+            ax1.set_title('Training and Validation Loss')
+            ax1.set_xlabel('Epoch')
+            ax1.set_ylabel('Loss')
+            ax1.legend()
+            ax1.grid(True)
+            
+            # 准确率曲线
+            ax2.plot([acc*100 for acc in self.train_history['train_acc']], 
+                    label='Train Acc', color='blue')
+            ax2.plot([acc*100 for acc in self.train_history['val_acc']], 
+                    label='Val Acc', color='red')
+            ax2.set_title('Training and Validation Accuracy')
+            ax2.set_xlabel('Epoch')
+            ax2.set_ylabel('Accuracy (%)')
+            ax2.legend()
+            ax2.grid(True)
+            
+            # 学习率曲线
+            ax3.plot(self.train_history['learning_rates'], color='green')
+            ax3.set_title('Learning Rate Schedule')
+            ax3.set_xlabel('Epoch')
+            ax3.set_ylabel('Learning Rate')
+            ax3.set_yscale('log')
+            ax3.grid(True)
+            
+            # 验证精度改善
+            best_val_acc = [max(self.train_history['val_acc'][:i+1]) 
+                           for i in range(len(self.train_history['val_acc']))]
+            ax4.plot([acc*100 for acc in best_val_acc], color='purple')
+            ax4.set_title('Best Validation Accuracy Progress')
+            ax4.set_xlabel('Epoch')
+            ax4.set_ylabel('Best Val Accuracy (%)')
+            ax4.grid(True)
+            
+            plt.tight_layout()
+            plt.savefig('training_history.png', dpi=300, bbox_inches='tight')
+            plt.show()
+        except Exception as e:
+            print(f"⚠️  无法生成训练历史图: {e}")
     
     def predict_single_sample(self, data):
         """预测单个样本"""
@@ -529,34 +531,12 @@ class BinaryBearingTrainer:
         }
 
 
-# 完整的训练和评估流程
-def complete_binary_classification_pipeline():
-    """完整的二分类流程"""
+# 测试代码
+if __name__ == "__main__":
+    print("🧪 测试三层CNN模型")
+    print("=" * 40)
     
-    print("🎯 轴承故障二分类 - 完整流程")
-    print("=" * 60)
-    
-    # 1. 数据准备
-    from data_binary import BinaryBearingDataProcessor
-    
-    processor = BinaryBearingDataProcessor(
-        dataset1_dir='bearing_dataset',    # HUST数据集
-        dataset2_dir='bearing_dataset1',   # 另一个数据集
-        seq_length=1000,
-        overlap_ratio=0.5
-    )
-    
-    # 获取数据加载器
-    train_loader, val_loader, test_loader = processor.get_optimized_data_loaders(
-        train_dataset='dataset1',  # 在HUST数据集上训练
-        test_dataset='dataset2',   # 在dataset2上测试
-        batch_size=64,
-        max_train_files=200,       # 可以根据需要调整
-        max_test_files=100,
-        val_split=0.2
-    )
-    
-    # 2. 模型初始化
+    # 创建测试模型
     model = ThreeLayerCNN(
         input_length=1000,
         input_channels=1,
@@ -564,39 +544,27 @@ def complete_binary_classification_pipeline():
         dropout_rate=0.3
     )
     
-    # 3. 训练器初始化
+    # 显示模型信息
+    model_info = model.get_model_info()
+    print(f"📋 模型信息:")
+    print(f"  总参数: {model_info['total_parameters']:,}")
+    print(f"  可训练参数: {model_info['trainable_parameters']:,}")
+    print(f"  模型大小: {model_info['model_size_mb']:.2f} MB")
+    print(f"  特征维度: {model_info['feature_dim']}")
+    
+    # 测试前向传播
+    test_input = torch.randn(8, 1000, 1)  # (batch_size, seq_len, channels)
+    output = model(test_input)
+    print(f"\n🔍 测试结果:")
+    print(f"  输入形状: {test_input.shape}")
+    print(f"  输出形状: {output.shape}")
+    print(f"  输出范围: [{output.min().item():.3f}, {output.max().item():.3f}]")
+    
+    # 创建训练器
     trainer = BinaryBearingTrainer(
         model=model,
         device='auto',
-        learning_rate=0.001,
-        weight_decay=1e-4
+        learning_rate=0.001
     )
     
-    # 4. 训练模型
-    trainer.train(
-        train_loader=train_loader,
-        val_loader=val_loader,
-        epochs=100,
-        early_stopping_patience=15,
-        save_best_model=True,
-        model_save_path='best_binary_cnn_model.pth'
-    )
-    
-    # 5. 绘制训练历史
-    trainer.plot_training_history()
-    
-    # 6. 测试评估
-    test_results = trainer.evaluate(test_loader, class_names=['Normal', 'Fault'])
-    
-    # 7. 显示性能摘要
-    processor.print_performance_summary()
-    
-    return trainer, test_results, processor
-
-
-if __name__ == "__main__":
-    # 运行完整流程
-    trainer, results, processor = complete_binary_classification_pipeline()
-    
-    print(f"\n🎉 二分类模型训练和评估完成！")
-    print(f"📊 最终测试精度: {results['accuracy']*100:.2f}%")
+    print(f"\n✅ 模型和训练器创建成功！")

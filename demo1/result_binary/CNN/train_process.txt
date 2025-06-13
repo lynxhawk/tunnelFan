@@ -1,0 +1,101 @@
+Epoch [  1/100] | Train Loss: 0.0220 | Train Acc: 99.43% | Val Loss: 0.0136 | Val Acc: 99.53% | LR: 1.00e-03 | Time: 10.2s
+Epoch [  2/100] | Train Loss: 0.0115 | Train Acc: 99.60% | Val Loss: 0.0223 | Val Acc: 99.00% | LR: 1.00e-03 | Time: 6.6s                                                                                                  
+Epoch [  3/100] | Train Loss: 0.0091 | Train Acc: 99.73% | Val Loss: 0.0167 | Val Acc: 99.30% | LR: 1.00e-03 | Time: 6.5s                                                                                                  
+Epoch [  4/100] | Train Loss: 0.0043 | Train Acc: 99.87% | Val Loss: 0.0209 | Val Acc: 99.17% | LR: 1.00e-03 | Time: 6.7s                                                                                                  
+Epoch [  5/100] | Train Loss: 0.0059 | Train Acc: 99.83% | Val Loss: 0.0040 | Val Acc: 99.83% | LR: 1.00e-03 | Time: 6.7s                                                                                                  
+Epoch [  6/100] | Train Loss: 0.0044 | Train Acc: 99.88% | Val Loss: 0.0051 | Val Acc: 99.81% | LR: 1.00e-03 | Time: 6.8s                                                                                                  
+Epoch [  7/100] | Train Loss: 0.0045 | Train Acc: 99.88% | Val Loss: 0.0027 | Val Acc: 99.87% | LR: 1.00e-03 | Time: 6.6s                                                                                                  
+Epoch [  8/100] | Train Loss: 0.0043 | Train Acc: 99.89% | Val Loss: 0.0014 | Val Acc: 99.91% | LR: 1.00e-03 | Time: 6.6s                                                                                                  
+Epoch [  9/100] | Train Loss: 0.0046 | Train Acc: 99.88% | Val Loss: 0.0021 | Val Acc: 99.89% | LR: 1.00e-03 | Time: 6.5s                                                                                                  
+Epoch [ 10/100] | Train Loss: 0.0040 | Train Acc: 99.88% | Val Loss: 0.0056 | Val Acc: 99.69% | LR: 1.00e-03 | Time: 6.7s                                                                                                  
+Epoch [ 11/100] | Train Loss: 0.0030 | Train Acc: 99.93% | Val Loss: 0.0014 | Val Acc: 99.93% | LR: 1.00e-03 | Time: 6.7s                                                                                                  
+Epoch [ 12/100] | Train Loss: 0.0042 | Train Acc: 99.88% | Val Loss: 0.0026 | Val Acc: 99.88% | LR: 1.00e-03 | Time: 6.7s                                                                                                  
+Epoch [ 13/100] | Train Loss: 0.0030 | Train Acc: 99.92% | Val Loss: 0.0030 | Val Acc: 99.86% | LR: 1.00e-03 | Time: 6.6s                                                                                                  
+Epoch [ 14/100] | Train Loss: 0.0031 | Train Acc: 99.91% | Val Loss: 0.0030 | Val Acc: 99.87% | LR: 1.00e-03 | Time: 6.6s                                                                                                  
+Epoch [ 15/100] | Train Loss: 0.0028 | Train Acc: 99.92% | Val Loss: 0.0095 | Val Acc: 99.62% | LR: 1.00e-03 | Time: 6.7s                                                                                                  
+Epoch [ 16/100] | Train Loss: 0.0036 | Train Acc: 99.90% | Val Loss: 0.0011 | Val Acc: 99.94% | LR: 1.00e-03 | Time: 6.8s                                                                                                  
+Epoch [ 17/100] | Train Loss: 0.0031 | Train Acc: 99.92% | Val Loss: 0.0037 | Val Acc: 99.85% | LR: 1.00e-03 | Time: 6.8s                                                                                                  
+Epoch [ 18/100] | Train Loss: 0.0031 | Train Acc: 99.92% | Val Loss: 0.0023 | Val Acc: 99.86% | LR: 1.00e-03 | Time: 6.6s                                                                                                  
+Epoch [ 19/100] | Train Loss: 0.0133 | Train Acc: 99.92% | Val Loss: 0.0008 | Val Acc: 99.97% | LR: 1.00e-03 | Time: 6.7s                                                                                                  
+Epoch [ 20/100] | Train Loss: 0.0066 | Train Acc: 99.78% | Val Loss: 0.0030 | Val Acc: 99.85% | LR: 1.00e-03 | Time: 6.7s                                                                                                  
+Epoch [ 21/100] | Train Loss: 0.0315 | Train Acc: 99.90% | Val Loss: 0.0106 | Val Acc: 99.55% | LR: 1.00e-03 | Time: 6.6s
+Epoch [ 22/100] | Train Loss: 0.0073 | Train Acc: 99.77% | Val Loss: 0.0014 | Val Acc: 99.91% | LR: 1.00e-03 | Time: 6.6s                                                                                                  
+Epoch [ 23/100] | Train Loss: 0.0041 | Train Acc: 99.87% | Val Loss: 0.0009 | Val Acc: 99.96% | LR: 1.00e-03 | Time: 6.8s                                                                                                  
+Epoch [ 24/100] | Train Loss: 0.0031 | Train Acc: 99.90% | Val Loss: 0.0008 | Val Acc: 99.97% | LR: 1.00e-03 | Time: 6.7s                                                                                                  
+Epoch [ 25/100] | Train Loss: 0.0040 | Train Acc: 99.89% | Val Loss: 0.0033 | Val Acc: 99.84% | LR: 1.00e-03 | Time: 6.7s                                                                                                  
+Epoch [ 26/100] | Train Loss: 0.0035 | Train Acc: 99.90% | Val Loss: 0.0187 | Val Acc: 99.37% | LR: 1.00e-03 | Time: 6.7s                                                                                                  
+Epoch [ 27/100] | Train Loss: 0.0030 | Train Acc: 99.92% | Val Loss: 0.0009 | Val Acc: 99.94% | LR: 1.00e-03 | Time: 6.7s                                                                                                  
+Epoch [ 28/100] | Train Loss: 0.0053 | Train Acc: 99.85% | Val Loss: 0.0008 | Val Acc: 99.96% | LR: 1.00e-03 | Time: 6.7s                                                                                                  
+Epoch [ 29/100] | Train Loss: 0.0030 | Train Acc: 99.91% | Val Loss: 0.0071 | Val Acc: 99.73% | LR: 1.00e-03 | Time: 6.7s                                                                                                  
+    📉 学习率从 1.00e-03 降低到 5.00e-04                                                                                                                                                                                   
+Epoch [ 30/100] | Train Loss: 0.0027 | Train Acc: 99.92% | Val Loss: 0.0240 | Val Acc: 99.00% | LR: 5.00e-04 | Time: 6.6s
+Epoch [ 31/100] | Train Loss: 0.0023 | Train Acc: 99.94% | Val Loss: 0.0060 | Val Acc: 99.73% | LR: 5.00e-04 | Time: 6.6s                                                                                                  
+Epoch [ 32/100] | Train Loss: 0.0020 | Train Acc: 99.94% | Val Loss: 0.0024 | Val Acc: 99.85% | LR: 5.00e-04 | Time: 6.6s                                                                                                  
+Epoch [ 33/100] | Train Loss: 0.0016 | Train Acc: 99.96% | Val Loss: 0.0011 | Val Acc: 99.94% | LR: 5.00e-04 | Time: 6.7s                                                                                                  
+Epoch [ 34/100] | Train Loss: 0.0015 | Train Acc: 99.95% | Val Loss: 0.0023 | Val Acc: 99.88% | LR: 5.00e-04 | Time: 6.7s                                                                                                  
+
+⏹️  早停触发！验证精度在 15 个epoch内未改善
+
+✅ 训练完成！
+📊 训练统计:
+  总训练时间: 3.8 分钟
+  最佳验证精度: 99.97%
+  最终学习率: 5.00e-04
+✅ 已加载最佳模型权重
+
+==================== 步骤5: 训练结果可视化 ====================
+
+==================== 步骤6: 模型测试 ====================
+
+🧪 开始模型评估...
+Testing:   0%|                                                                                                                                                                                   | 0/1380 [00:00<?, ?it/s] 🔍 PyTorch版本: 2.7.0+cu126
+🔍 PyTorch版本: 2.7.0+cu126
+🖥️  CUDA可用: True
+   GPU设备: NVIDIA GeForce RTX 4060 Ti
+🖥️  CUDA可用: True
+   GPU设备: NVIDIA GeForce RTX 4060 Ti
+🔍 PyTorch版本: 2.7.0+cu126
+🔍 PyTorch版本: 2.7.0+cu126
+🖥️  CUDA可用: True
+🖥️  CUDA可用: True
+   GPU设备: NVIDIA GeForce RTX 4060 Ti
+   GPU设备: NVIDIA GeForce RTX 4060 Ti
+Testing: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1380/1380 [00:05<00:00, 265.09it/s]
+
+📊 测试结果:
+  测试损失: 7.2614
+  准确率: 43.20%
+  精确率: 95.00%
+  召回率: 43.20%
+  F1分数: 54.80%
+
+📋 详细分类报告:
+              precision    recall  f1-score   support
+
+      Normal       0.09      1.00      0.16      4844
+       Fault       1.00      0.40      0.57     83441
+
+    accuracy                           0.43     88285
+   macro avg       0.54      0.70      0.37     88285
+weighted avg       0.95      0.43      0.55     88285
+
+
+==================== 步骤7: 性能总结 ====================
+
+📈 数据处理性能摘要:
+  总耗时: 32.63秒
+  数据加载: 14.91s (45.7%)
+  窗口创建: 0.78s (2.4%)
+  数据标准化: 16.95s (51.9%)
+
+🎉 训练和测试完成!
+📊 最终性能指标:
+  测试准确率: 43.20%
+  测试精确率: 95.00%
+  测试召回率: 43.20%
+  测试F1分数: 54.80%
+
+💾 结果已保存:
+  模型文件: best_binary_cnn_model.pth
+  结果文件: training_results.pkl
+✅ 训练完成!

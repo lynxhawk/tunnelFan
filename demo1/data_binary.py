@@ -22,7 +22,6 @@ class BinaryBearingDataset(Dataset):
         - labels: 二分类标签 (0=正常, 1=故障)
         - seq_length: 序列长度
         """
-        # 预先转换为tensor，避免每次__getitem__时重复转换
         if isinstance(data, np.ndarray):
             self.data = torch.from_numpy(data).float()
         else:
@@ -39,7 +38,6 @@ class BinaryBearingDataset(Dataset):
         return len(self.data)
     
     def __getitem__(self, idx):
-        # 直接返回tensor，避免重复转换
         return self.data[idx], self.labels[idx]
 
 
@@ -242,18 +240,50 @@ class BinaryBearingDataProcessor:
         
         return X, y
     
-    def prepare_cross_dataset_training(self, train_dataset='dataset1', test_dataset='dataset2',
-                                     max_train_files=None, max_test_files=None, val_split=0.2):
+    def get_optimized_data_loaders(self, train_dataset='dataset1', test_dataset='dataset2',
+                                 batch_size=32, max_train_files=None, max_test_files=None,
+                                 val_split=0.2):
         """
-        准备跨数据集训练：在dataset1上训练，在dataset2上测试
+        获取优化的跨数据集数据加载器
         
         参数:
-        - train_dataset: 训练数据集类型
-        - test_dataset: 测试数据集类型
+        - train_dataset: 训练数据集类型 ('dataset1' 或 'dataset2')
+        - test_dataset: 测试数据集类型 ('dataset1' 或 'dataset2')
+        - batch_size: 批次大小
         - max_train_files: 最大训练文件数
         - max_test_files: 最大测试文件数
         - val_split: 验证集比例
         """
+        
+        # 自动确定最佳worker数量
+        cpu_count = psutil.cpu_count()
+        
+        # 根据系统资源调整worker数量
+        if cpu_count >= 16:
+            num_workers = 8  # 高端系统
+        elif cpu_count >= 8:
+            num_workers = 6  # 中端系统
+        elif cpu_count >= 4:
+            num_workers = 4  # 普通系统
+        else:
+            num_workers = 2  # 低端系统
+        
+        # Windows系统特殊处理
+        if os.name == 'nt':
+            num_workers = min(num_workers, 4)  # Windows上限制worker数量
+        
+        # 检查可用内存
+        memory_gb = psutil.virtual_memory().total / (1024**3)
+        if memory_gb < 8:
+            num_workers = min(num_workers, 2)  # 内存不足时减少worker
+        
+        print(f"\n⚙️  数据加载器优化配置:")
+        print(f"   CPU核心数: {cpu_count}")
+        print(f"   可用内存: {memory_gb:.1f}GB")
+        print(f"   Workers数量: {num_workers}")
+        print(f"   Pin Memory: {torch.cuda.is_available()}")
+        
+        # 准备跨数据集数据
         import time
         normalize_start = time.time()
         
@@ -305,94 +335,31 @@ class BinaryBearingDataProcessor:
         print(f"  - 测试集: {len(X_test_scaled):,} 样本 ({len(X_test_scaled)/total_samples*100:.1f}%)")
         print(f"    * 正常: {np.sum(y_test == 0):,}, 故障: {np.sum(y_test == 1):,}")
         
-        return X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test
-    
-    def get_optimized_data_loaders(self, train_dataset='dataset1', test_dataset='dataset2',
-                                 batch_size=32, max_train_files=None, max_test_files=None,
-                                 val_split=0.2):
-        """
-        获取优化的跨数据集数据加载器
-        
-        参数:
-        - train_dataset: 训练数据集类型 ('dataset1' 或 'dataset2')
-        - test_dataset: 测试数据集类型 ('dataset1' 或 'dataset2')
-        - batch_size: 批次大小
-        - max_train_files: 最大训练文件数
-        - max_test_files: 最大测试文件数
-        - val_split: 验证集比例
-        """
-        
-        # 自动确定最佳worker数量
-        cpu_count = psutil.cpu_count()
-        
-        # 根据系统资源调整worker数量
-        if cpu_count >= 16:
-            num_workers = 8  # 高端系统
-        elif cpu_count >= 8:
-            num_workers = 6  # 中端系统
-        elif cpu_count >= 4:
-            num_workers = 4  # 普通系统
-        else:
-            num_workers = 2  # 低端系统
-        
-        # Windows系统特殊处理
-        if os.name == 'nt':
-            num_workers = min(num_workers, 4)  # Windows上限制worker数量
-        
-        # 检查可用内存
-        memory_gb = psutil.virtual_memory().total / (1024**3)
-        if memory_gb < 8:
-            num_workers = min(num_workers, 2)  # 内存不足时减少worker
-        
-        print(f"\n⚙️  数据加载器优化配置:")
-        print(f"   CPU核心数: {cpu_count}")
-        print(f"   可用内存: {memory_gb:.1f}GB")
-        print(f"   Workers数量: {num_workers}")
-        print(f"   Pin Memory: {torch.cuda.is_available()}")
-        
-        # 准备跨数据集数据
-        X_train, X_val, X_test, y_train, y_val, y_test = self.prepare_cross_dataset_training(
-            train_dataset, test_dataset, max_train_files, max_test_files, val_split
-        )
-        
         # 创建优化的数据集
-        train_dataset_obj = BinaryBearingDataset(X_train, y_train, self.seq_length)
-        val_dataset_obj = BinaryBearingDataset(X_val, y_val, self.seq_length)
-        test_dataset_obj = BinaryBearingDataset(X_test, y_test, self.seq_length)
+        train_dataset_obj = BinaryBearingDataset(X_train_scaled, y_train, self.seq_length)
+        val_dataset_obj = BinaryBearingDataset(X_val_scaled, y_val, self.seq_length)
+        test_dataset_obj = BinaryBearingDataset(X_test_scaled, y_test, self.seq_length)
         
         # 创建优化的数据加载器
-        train_loader = DataLoader(
-            train_dataset_obj, 
-            batch_size=batch_size, 
-            shuffle=True, 
-            num_workers=num_workers,
-            pin_memory=torch.cuda.is_available(),  # GPU时启用
-            persistent_workers=True if num_workers > 0 else False,  # 保持worker进程
-            drop_last=False,
-            prefetch_factor=4 if num_workers > 0 else 2  # 预取更多batch
-        )
+        dataloader_kwargs = {
+            'batch_size': batch_size,
+            'num_workers': num_workers,
+            'pin_memory': torch.cuda.is_available(),
+            'drop_last': False
+        }
         
-        val_loader = DataLoader(
-            val_dataset_obj, 
-            batch_size=batch_size, 
-            shuffle=False, 
-            num_workers=num_workers,
-            pin_memory=torch.cuda.is_available(),
-            persistent_workers=True if num_workers > 0 else False,
-            drop_last=False,
-            prefetch_factor=4 if num_workers > 0 else 2
-        )
+        # 处理PyTorch版本兼容性
+        try:
+            dataloader_kwargs.update({
+                'persistent_workers': True if num_workers > 0 else False,
+                'prefetch_factor': 4 if num_workers > 0 else 2
+            })
+        except:
+            pass  # 旧版本PyTorch不支持这些参数
         
-        test_loader = DataLoader(
-            test_dataset_obj, 
-            batch_size=batch_size, 
-            shuffle=False, 
-            num_workers=num_workers,
-            pin_memory=torch.cuda.is_available(),
-            persistent_workers=True if num_workers > 0 else False,
-            drop_last=False,
-            prefetch_factor=4 if num_workers > 0 else 2
-        )
+        train_loader = DataLoader(train_dataset_obj, shuffle=True, **dataloader_kwargs)
+        val_loader = DataLoader(val_dataset_obj, shuffle=False, **dataloader_kwargs)
+        test_loader = DataLoader(test_dataset_obj, shuffle=False, **dataloader_kwargs)
         
         print(f"✅ 二分类数据加载器创建完成")
         
@@ -420,11 +387,10 @@ class BinaryBearingDataProcessor:
             print(f"  数据标准化: {self.processing_stats['normalize_time']:.2f}s ({self.processing_stats['normalize_time']/total_time*100:.1f}%)")
 
 
-# 快速使用示例
-def quick_binary_classification_example():
-    """快速二分类示例"""
-    
-    print("🎯 轴承故障二分类 - 快速示例")
+# 测试代码
+if __name__ == "__main__":
+    # 快速测试示例
+    print("🧪 测试二分类数据处理器")
     print("=" * 50)
     
     # 初始化处理器
@@ -435,43 +401,38 @@ def quick_binary_classification_example():
         overlap_ratio=0.5
     )
     
-    # 获取数据加载器：在dataset1训练，dataset2测试
-    print("📊 准备数据加载器...")
-    train_loader, val_loader, test_loader = processor.get_optimized_data_loaders(
-        train_dataset='dataset1',  # 在HUST数据集上训练
-        test_dataset='dataset2',   # 在dataset2上测试
-        batch_size=64,
-        max_train_files=100,       # 限制训练文件数量以加快演示
-        max_test_files=50,         # 限制测试文件数量
-        val_split=0.2
-    )
+    try:
+        # 获取数据加载器
+        train_loader, val_loader, test_loader = processor.get_optimized_data_loaders(
+            train_dataset='dataset1',  # 在HUST数据集上训练
+            test_dataset='dataset2',   # 在dataset2上测试
+            batch_size=64,
+            max_train_files=10,        # 限制文件数量以加快测试
+            max_test_files=5,
+            val_split=0.2
+        )
+        
+        # 测试数据形状
+        print("\n🔍 数据批次信息:")
+        for batch_data, batch_labels in train_loader:
+            print(f"  信号数据批次形状: {batch_data.shape}")
+            print(f"  标签批次形状: {batch_labels.shape}")
+            print(f"  数据类型: {batch_data.dtype}")
+            print(f"  标签分布: 正常={torch.sum(batch_labels == 0).item()}, 故障={torch.sum(batch_labels == 1).item()}")
+            break
+        
+        # 显示类别信息
+        class_info = processor.get_class_info()
+        print(f"\n📋 分类信息:")
+        print(f"  类别数量: {class_info['num_classes']}")
+        print(f"  类别名称: {class_info['class_names']}")
+        print(f"  类别映射: {class_info['class_mapping']}")
+        
+        # 显示性能摘要
+        processor.print_performance_summary()
+        
+        print(f"\n🎉 测试完成！")
     
-    # 测试数据形状
-    print("\n🔍 数据批次信息:")
-    for batch_data, batch_labels in train_loader:
-        print(f"  信号数据批次形状: {batch_data.shape}")
-        print(f"  标签批次形状: {batch_labels.shape}")
-        print(f"  数据类型: {batch_data.dtype}")
-        print(f"  标签分布: 正常={torch.sum(batch_labels == 0).item()}, 故障={torch.sum(batch_labels == 1).item()}")
-        break
-    
-    # 显示类别信息
-    class_info = processor.get_class_info()
-    print(f"\n📋 分类信息:")
-    print(f"  类别数量: {class_info['num_classes']}")
-    print(f"  类别名称: {class_info['class_names']}")
-    print(f"  类别映射: {class_info['class_mapping']}")
-    
-    # 显示性能摘要
-    processor.print_performance_summary()
-    
-    return processor, train_loader, val_loader, test_loader
-
-
-# 测试代码
-if __name__ == "__main__":
-    # 运行快速示例
-    processor, train_loader, val_loader, test_loader = quick_binary_classification_example()
-    
-    print(f"\n🎉 示例运行完成！")
-    print(f"📦 数据加载器已准备就绪，可以开始训练CNN模型")
+    except Exception as e:
+        print(f"❌ 测试失败: {e}")
+        print("请确保数据目录存在并包含CSV文件")

@@ -9,6 +9,9 @@
 - bearing_dataset1: 另一数据集 (包含Normal=正常, 其他=故障)
 
 训练策略: 在bearing_dataset上训练，在bearing_dataset1上测试
+
+使用方法:
+python main_binary.py
 """
 
 import os
@@ -17,9 +20,11 @@ import torch
 import warnings
 warnings.filterwarnings('ignore')
 
-# 导入自定义模块
-from data_binary import BinaryBearingDataProcessor
-from cnn_binary import ThreeLayerCNN, BinaryBearingTrainer
+# 检查PyTorch版本和GPU
+print(f"🔍 PyTorch版本: {torch.__version__}")
+print(f"🖥️  CUDA可用: {torch.cuda.is_available()}")
+if torch.cuda.is_available():
+    print(f"   GPU设备: {torch.cuda.get_device_name(0)}")
 
 
 def check_data_directories():
@@ -56,14 +61,13 @@ def main():
     
     # 检查数据目录
     if not check_data_directories():
-        return
-    
-    # 检查GPU可用性
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"🖥️  计算设备: {device}")
-    if torch.cuda.is_available():
-        print(f"   GPU名称: {torch.cuda.get_device_name(0)}")
-        print(f"   GPU内存: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
+        print("\n请按以下步骤准备数据:")
+        print("1. 创建 'bearing_dataset' 目录，放入HUST数据集CSV文件")
+        print("2. 创建 'bearing_dataset1' 目录，放入测试数据集CSV文件")
+        print("3. 确保文件命名规则:")
+        print("   - bearing_dataset: N开头的文件为正常，其他为故障")
+        print("   - bearing_dataset1: 包含'Normal'的文件为正常，其他为故障")
+        return None
     
     # 配置参数
     config = {
@@ -88,6 +92,8 @@ def main():
         # 步骤1: 数据处理
         print(f"\n{'='*20} 步骤1: 数据处理 {'='*20}")
         
+        from data_binary import BinaryBearingDataProcessor
+        
         processor = BinaryBearingDataProcessor(
             dataset1_dir='bearing_dataset',
             dataset2_dir='bearing_dataset1',
@@ -108,6 +114,8 @@ def main():
         # 步骤2: 模型初始化
         print(f"\n{'='*20} 步骤2: 模型初始化 {'='*20}")
         
+        from cnn_binary import ThreeLayerCNN, BinaryBearingTrainer
+        
         model = ThreeLayerCNN(
             input_length=config['seq_length'],
             input_channels=1,
@@ -127,7 +135,7 @@ def main():
         
         trainer = BinaryBearingTrainer(
             model=model,
-            device=device,
+            device='auto',
             learning_rate=config['learning_rate'],
             weight_decay=config['weight_decay']
         )
@@ -186,50 +194,18 @@ def main():
         
         return trainer, test_results, processor
         
+    except ImportError as e:
+        print(f"\n❌ 导入模块失败: {e}")
+        print("请确保以下文件存在于当前目录:")
+        print("  - data_binary.py")
+        print("  - cnn_binary.py")
+        return None
+        
     except Exception as e:
         print(f"\n❌ 训练过程中出现错误: {e}")
         import traceback
         traceback.print_exc()
         return None
-
-
-def load_and_test_model(model_path='best_binary_cnn_model.pth', test_data_path=None):
-    """加载已训练的模型并进行测试"""
-    
-    print("🔄 加载已训练的模型...")
-    
-    if not os.path.exists(model_path):
-        print(f"❌ 模型文件不存在: {model_path}")
-        return None
-    
-    # 加载模型
-    checkpoint = torch.load(model_path, map_location='cpu')
-    model_info = checkpoint.get('model_info', {})
-    
-    print(f"📋 加载的模型信息:")
-    print(f"  训练轮数: {checkpoint.get('epoch', 'Unknown')}")
-    print(f"  验证精度: {checkpoint.get('val_acc', 0)*100:.2f}%")
-    
-    # 重建模型
-    model = ThreeLayerCNN(
-        input_length=1000,
-        input_channels=1,
-        num_classes=2,
-        dropout_rate=0.3
-    )
-    
-    model.load_state_dict(checkpoint['model_state_dict'])
-    
-    # 创建训练器用于测试
-    trainer = BinaryBearingTrainer(model=model, device='auto')
-    
-    if test_data_path:
-        # 如果提供了测试数据路径，进行测试
-        print(f"🧪 在新数据上测试模型...")
-        # 这里可以添加自定义测试逻辑
-        pass
-    
-    return trainer
 
 
 def predict_single_file(model_path, csv_file_path):
@@ -245,17 +221,21 @@ def predict_single_file(model_path, csv_file_path):
         print(f"❌ 数据文件不存在: {csv_file_path}")
         return None
     
-    # 加载模型
-    trainer = load_and_test_model(model_path)
-    if trainer is None:
-        return None
-    
-    # 加载和预处理数据
-    import pandas as pd
-    import numpy as np
-    from sklearn.preprocessing import StandardScaler
-    
     try:
+        # 加载模型
+        from cnn_binary import ThreeLayerCNN, BinaryBearingTrainer
+        model = ThreeLayerCNN(input_length=1000, input_channels=1, num_classes=2)
+        trainer = BinaryBearingTrainer(model=model, device='auto')
+        
+        # 加载权重
+        checkpoint = torch.load(model_path, map_location='cpu')
+        trainer.model.load_state_dict(checkpoint['model_state_dict'])
+        
+        # 加载和预处理数据
+        import pandas as pd
+        import numpy as np
+        from sklearn.preprocessing import StandardScaler
+        
         # 读取CSV文件
         df = pd.read_csv(csv_file_path, header=None, dtype=np.float32)
         data = df.values.astype(np.float32).flatten()
@@ -276,7 +256,7 @@ def predict_single_file(model_path, csv_file_path):
         
         X = np.array(windows)
         
-        # 标准化（这里简化处理，实际应该使用训练时的scaler）
+        # 标准化
         scaler = StandardScaler()
         X_scaled = scaler.fit_transform(X.reshape(-1, 1)).reshape(X.shape)
         X_scaled = X_scaled.reshape(X_scaled.shape[0], X_scaled.shape[1], 1)
@@ -292,9 +272,6 @@ def predict_single_file(model_path, csv_file_path):
         
         # 汇总结果
         predictions = np.array(predictions)
-        confidences = np.array(confidences)
-        
-        # 文件级别的预测（多数投票）
         final_prediction = 1 if np.sum(predictions) > len(predictions) // 2 else 0
         avg_confidence = np.mean(confidences)
         
@@ -302,8 +279,6 @@ def predict_single_file(model_path, csv_file_path):
             'file_path': csv_file_path,
             'final_prediction': 'Fault' if final_prediction == 1 else 'Normal',
             'prediction_confidence': avg_confidence,
-            'window_predictions': predictions,
-            'window_confidences': confidences,
             'total_windows': len(predictions),
             'fault_windows': np.sum(predictions == 1),
             'normal_windows': np.sum(predictions == 0)
@@ -321,6 +296,8 @@ def predict_single_file(model_path, csv_file_path):
         
     except Exception as e:
         print(f"❌ 预测过程中出现错误: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 
@@ -395,12 +372,11 @@ def interactive_mode():
     while True:
         print("\n请选择操作:")
         print("1. 完整训练流程")
-        print("2. 加载模型并测试")
-        print("3. 单文件预测")
-        print("4. 批量预测")
-        print("5. 退出")
+        print("2. 单文件预测")
+        print("3. 批量预测")
+        print("4. 退出")
         
-        choice = input("\n请输入选择 (1-5): ").strip()
+        choice = input("\n请输入选择 (1-4): ").strip()
         
         if choice == '1':
             print("\n🚀 开始完整训练流程...")
@@ -414,17 +390,6 @@ def interactive_mode():
             model_path = input("请输入模型文件路径 (默认: best_binary_cnn_model.pth): ").strip()
             if not model_path:
                 model_path = 'best_binary_cnn_model.pth'
-            
-            trainer = load_and_test_model(model_path)
-            if trainer:
-                print("✅ 模型加载成功!")
-            else:
-                print("❌ 模型加载失败!")
-        
-        elif choice == '3':
-            model_path = input("请输入模型文件路径 (默认: best_binary_cnn_model.pth): ").strip()
-            if not model_path:
-                model_path = 'best_binary_cnn_model.pth'
                 
             csv_path = input("请输入CSV文件路径: ").strip()
             
@@ -433,7 +398,7 @@ def interactive_mode():
             else:
                 print("❌ 请提供CSV文件路径")
         
-        elif choice == '4':
+        elif choice == '3':
             model_path = input("请输入模型文件路径 (默认: best_binary_cnn_model.pth): ").strip()
             if not model_path:
                 model_path = 'best_binary_cnn_model.pth'
@@ -445,7 +410,7 @@ def interactive_mode():
             else:
                 print("❌ 请提供数据目录路径")
         
-        elif choice == '5':
+        elif choice == '4':
             print("👋 再见!")
             break
         
@@ -457,28 +422,18 @@ if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description='轴承故障检测二分类系统')
-    parser.add_argument('--mode', choices=['train', 'test', 'predict', 'batch', 'interactive'], 
+    parser.add_argument('--mode', choices=['train', 'predict', 'batch', 'interactive'], 
                        default='interactive', help='运行模式')
     parser.add_argument('--model_path', default='best_binary_cnn_model.pth', 
                        help='模型文件路径')
     parser.add_argument('--file_path', help='单文件预测的CSV文件路径')
     parser.add_argument('--data_dir', help='批量预测的数据目录路径')
-    parser.add_argument('--no_gui', action='store_true', help='不显示图形界面')
     
     args = parser.parse_args()
-    
-    # 设置matplotlib后端（如果不需要GUI）
-    if args.no_gui:
-        import matplotlib
-        matplotlib.use('Agg')
     
     if args.mode == 'train':
         print("🚀 开始训练模式...")
         main()
-    
-    elif args.mode == 'test':
-        print("🧪 开始测试模式...")
-        load_and_test_model(args.model_path)
     
     elif args.mode == 'predict':
         if args.file_path:
