@@ -39,6 +39,8 @@ class MLPClassifier(nn.Module):
         """前向传播"""
         # 如果输入是3D张量，展平为2D
         if x.dim() == 3:
+
+            
             batch_size = x.size(0)
             x = x.reshape(batch_size, -1)
 
