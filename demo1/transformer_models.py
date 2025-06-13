@@ -1,5 +1,5 @@
 """
-Transformer和CNN-Transformer模型实现
+Transformer和CNN-Transformer模型实现 - 修复版本
 专为8GB显存优化，适用于轴承故障诊断
 """
 
@@ -152,7 +152,7 @@ class TransformerClassifier(nn.Module):
 
 
 class CNNTransformerClassifier(nn.Module):
-    """CNN-Transformer混合分类器 - 8GB显存优化版"""
+    """CNN-Transformer混合分类器 - 修复版本"""
     
     def __init__(self, input_channels=1, seq_length=1000, num_classes=10,
                  cnn_filters=32, cnn_kernel_size=7, cnn_layers=2,
@@ -177,39 +177,44 @@ class CNNTransformerClassifier(nn.Module):
         
         self.input_channels = input_channels
         self.seq_length = seq_length
-        self.cnn_filters = cnn_filters
         self.d_model = d_model
         self.pool_size = pool_size
         
+        # 计算池化后的序列长度
+        self.reduced_seq_length = seq_length // pool_size
+        
         # CNN特征提取器
         cnn_layers_list = []
-        in_channels = input_channels
+        current_channels = input_channels
         
         for i in range(cnn_layers):
+            out_channels = cnn_filters * (2 ** i)  # 每层倍增滤波器数量
+            out_channels = min(out_channels, 128)  # 限制最大滤波器数量
+            
             cnn_layers_list.extend([
-                nn.Conv1d(in_channels, cnn_filters, kernel_size=cnn_kernel_size, 
+                nn.Conv1d(current_channels, out_channels, kernel_size=cnn_kernel_size, 
                          padding=cnn_kernel_size//2),
-                nn.BatchNorm1d(cnn_filters),
+                nn.BatchNorm1d(out_channels),
                 nn.ReLU(),
                 nn.Dropout(dropout_rate)
             ])
-            in_channels = cnn_filters
-            # 每层后增加滤波器数量，但保持在合理范围内
-            cnn_filters = min(cnn_filters * 2, 128)  # 限制最大滤波器数量
+            current_channels = out_channels
         
         # 添加池化层降低序列长度
-        cnn_layers_list.append(nn.AdaptiveAvgPool1d(seq_length // pool_size))
+        cnn_layers_list.append(nn.AdaptiveAvgPool1d(self.reduced_seq_length))
         
         self.cnn_feature_extractor = nn.Sequential(*cnn_layers_list)
         
-        # 计算CNN输出的通道数
-        self.cnn_output_channels = in_channels // 2  # 上面循环最后一次会翻倍
+        # 记录CNN输出的通道数
+        self.cnn_output_channels = current_channels
+        
+        print(f"CNN输出通道数: {self.cnn_output_channels}, 池化后序列长度: {self.reduced_seq_length}")
         
         # CNN输出到Transformer输入的投影
         self.cnn_to_transformer = nn.Linear(self.cnn_output_channels, d_model)
         
         # 位置编码
-        self.pos_encoder = PositionalEncoding(d_model, seq_length, dropout_rate)
+        self.pos_encoder = PositionalEncoding(d_model, self.reduced_seq_length + 100, dropout_rate)
         
         # Transformer编码器
         encoder_layer = nn.TransformerEncoderLayer(
@@ -261,14 +266,26 @@ class CNNTransformerClassifier(nn.Module):
         elif x.dim() == 2:
             x = x.unsqueeze(1)  # [batch_size, 1, seq_length]
         
-        # CNN特征提取: [batch_size, input_channels, seq_length] -> [batch_size, cnn_filters, reduced_seq_length]
+        # Debug: 打印输入形状
+        # print(f"CNN输入形状: {x.shape}")
+        
+        # CNN特征提取: [batch_size, input_channels, seq_length] -> [batch_size, cnn_output_channels, reduced_seq_length]
         cnn_features = self.cnn_feature_extractor(x)
         
-        # 转换为Transformer格式: [batch_size, reduced_seq_length, cnn_filters]
+        # Debug: 打印CNN输出形状
+        # print(f"CNN输出形状: {cnn_features.shape}")
+        
+        # 转换为Transformer格式: [batch_size, reduced_seq_length, cnn_output_channels]
         cnn_features = cnn_features.transpose(1, 2)
+        
+        # Debug: 打印转置后形状
+        # print(f"转置后形状: {cnn_features.shape}")
         
         # 投影到Transformer维度: [batch_size, reduced_seq_length, d_model]
         transformer_input = self.cnn_to_transformer(cnn_features)
+        
+        # Debug: 打印投影后形状
+        # print(f"投影后形状: {transformer_input.shape}")
         
         # 转换为Transformer期望的格式: [reduced_seq_length, batch_size, d_model]
         transformer_input = transformer_input.transpose(0, 1)
@@ -376,7 +393,7 @@ if __name__ == "__main__":
     
     # 显存使用估算
     print(f"\n显存使用估算 (batch_size=16):")
-    print(f"Transformer: ~{total_params * 4 / 1024**2:.1f}MB 参数 + ~200MB 激活")
+    print(f"CNN-Transformer: ~{total_params * 4 / 1024**2:.1f}MB 参数 + ~200MB 激活")
     print(f"总计: ~{total_params * 4 / 1024**2 + 200:.1f}MB")
     print("适合8GB显存训练！")
     
