@@ -879,6 +879,56 @@ def create_model(model_type, input_shape, num_classes, args, device):
 
     return model.to(device)
 
+def aggregate_confusion_matrix(cm, class_names, num_groups=10):
+    """
+    将混淆矩阵聚合成指定数量的组
+    
+    参数:
+    - cm: 原始混淆矩阵
+    - class_names: 类别名称列表
+    - num_groups: 聚合后的组数
+    
+    返回:
+    - aggregated_cm: 聚合后的混淆矩阵
+    - group_names: 组名称列表
+    """
+    num_classes = len(class_names)
+    classes_per_group = num_classes // num_groups
+    remainder = num_classes % num_groups
+    
+    # 创建聚合后的混淆矩阵（使用整数类型）
+    aggregated_cm = np.zeros((num_groups, num_groups), dtype=int)
+    group_names = []
+    
+    # 计算每组包含的类别
+    start_idx = 0
+    for i in range(num_groups):
+        # 计算当前组的大小（前几组可能多包含一个类别）
+        group_size = classes_per_group + (1 if i < remainder else 0)
+        end_idx = start_idx + group_size
+        
+        # 创建组名称
+        if group_size == 1:
+            group_names.append(class_names[start_idx])
+        else:
+            group_names.append(f"Group{i+1}({class_names[start_idx]}-{class_names[end_idx-1]})")
+        
+        # 聚合混淆矩阵
+        for j in range(num_groups):
+            # 计算目标组的范围
+            target_start = 0
+            for k in range(j):
+                target_size = classes_per_group + (1 if k < remainder else 0)
+                target_start += target_size
+            target_size = classes_per_group + (1 if j < remainder else 0)
+            target_end = target_start + target_size
+            
+            # 聚合混淆矩阵中的值（转换为整数）
+            aggregated_cm[i, j] = int(np.sum(cm[start_idx:end_idx, target_start:target_end]))
+        
+        start_idx = end_idx
+    
+    return aggregated_cm, group_names
 
 def train_workflow(processor, args, device):
     """
@@ -1043,7 +1093,13 @@ def train_workflow(processor, args, device):
         cm = confusion_matrix(y_test, predictions)
 
         # 可视化混淆矩阵
-        visualize_confusion_matrix(cm, class_names)
+        # 聚合并可视化混淆矩阵
+        if len(class_names) > 10:
+            aggregated_cm, group_names = aggregate_confusion_matrix(cm, class_names, num_groups=10)
+            visualize_confusion_matrix(aggregated_cm, group_names)
+            print(f"原始类别数: {len(class_names)}, 聚合为 {len(group_names)} 组")
+        else:
+            visualize_confusion_matrix(cm, class_names)
 
         # 创建临时变量以便兼容后续代码
         all_predictions = predictions
@@ -1056,7 +1112,13 @@ def train_workflow(processor, args, device):
         )
 
         # 可视化混淆矩阵
-        visualize_confusion_matrix(cm, class_names)
+        # 聚合并可视化混淆矩阵
+        if len(class_names) > 10:
+            aggregated_cm, group_names = aggregate_confusion_matrix(cm, class_names, num_groups=10)
+            visualize_confusion_matrix(aggregated_cm, group_names)
+            print(f"原始类别数: {len(class_names)}, 聚合为 {len(group_names)} 组")
+        else:
+            visualize_confusion_matrix(cm, class_names)
 
     # 可视化注意力权重 (对于有意义的注意力机制的模型)
     if not args.use_features and args.model_type in ['cnn_lstm_attention', 'cnn_bigru_attention', 'cnn_attention', 
@@ -1283,7 +1345,13 @@ def test_workflow(processor, args, device):
         cm = confusion_matrix(y_test, predictions)
 
         # 可视化混淆矩阵
-        visualize_confusion_matrix(cm, class_names)
+        # 聚合并可视化混淆矩阵
+        if len(class_names) > 10:
+            aggregated_cm, group_names = aggregate_confusion_matrix(cm, class_names, num_groups=10)
+            visualize_confusion_matrix(aggregated_cm, group_names)
+            print(f"原始类别数: {len(class_names)}, 聚合为 {len(group_names)} 组")
+        else:
+            visualize_confusion_matrix(cm, class_names)
 
         # 创建临时变量以便兼容后续代码
         all_predictions = predictions
@@ -1296,7 +1364,13 @@ def test_workflow(processor, args, device):
         )
 
         # 可视化混淆矩阵
-        visualize_confusion_matrix(cm, class_names)
+        # 聚合并可视化混淆矩阵
+        if len(class_names) > 10:
+            aggregated_cm, group_names = aggregate_confusion_matrix(cm, class_names, num_groups=10)
+            visualize_confusion_matrix(aggregated_cm, group_names)
+            print(f"原始类别数: {len(class_names)}, 聚合为 {len(group_names)} 组")
+        else:
+            visualize_confusion_matrix(cm, class_names)
 
     # 可视化注意力权重（对于有意义的注意力机制的模型）
     if not config['use_features'] and model_type in ['cnn_lstm_attention', 'cnn_bigru_attention', 'cnn_attention', 
