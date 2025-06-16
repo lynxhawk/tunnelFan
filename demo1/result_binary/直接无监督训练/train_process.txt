@@ -1,0 +1,236 @@
+🚀 模式1: 训练新模型并保存
+🎯 开始综合故障诊断评估
+====================================================================================================
+
+🚀 开始 Dataset_A 故障诊断测试
+================================================================================
+📂 加载数据集: Dataset_A (bearing_dataset)
+🚀 正在加载数据...
+处理文件 99/99: OB804.csv
+✅ 总共加载了 99 个类别的数据
+📊 数据加载耗时: 7.88秒
+  ✅ 正常数据: 15,345 样本
+  ✅ 故障数据: 82,342 样本
+📈 训练用正常数据: 10,741 样本
+📋 测试数据: 97,687 样本 (正常: 15345, 故障: 82342)
+
+🔬 测试统计方法: mahalanobis
+🔧 训练统计异常检测器 (方法: mahalanobis)
+✅ 训练完成，阈值: 42.74783464698955
+
+📊 Dataset_A - 统计方法-mahalanobis 评估结果:
+============================================================
+              precision    recall  f1-score   support
+
+          正常     1.0000    0.7650    0.8669     15345
+          故障     0.9580    1.0000    0.9786     82342
+
+    accuracy                         0.9631     97687
+   macro avg     0.9790    0.8825    0.9227     97687
+weighted avg     0.9646    0.9631    0.9610     97687
+
+🎯 AUC Score: 0.9995
+💾 统计模型已保存: saved_models\Dataset_A\statistical_mahalanobis_20250616_154044.pkl
+📁 模型和元数据已保存: saved_models\Dataset_A
+
+🔬 测试统计方法: euclidean
+🔧 训练统计异常检测器 (方法: euclidean)
+✅ 训练完成，阈值: 42.87096405029297
+
+📊 Dataset_A - 统计方法-euclidean 评估结果:
+============================================================
+              precision    recall  f1-score   support
+
+          正常     1.0000    0.7707    0.8705     15345
+          故障     0.9590    1.0000    0.9791     82342
+
+    accuracy                         0.9640     97687
+   macro avg     0.9795    0.8853    0.9248     97687
+weighted avg     0.9655    0.9640    0.9620     97687
+
+🎯 AUC Score: 1.0000
+💾 统计模型已保存: saved_models\Dataset_A\statistical_euclidean_20250616_154047.pkl
+📁 模型和元数据已保存: saved_models\Dataset_A
+
+🔬 测试统计方法: isolation_forest
+🔧 训练统计异常检测器 (方法: isolation_forest)
+✅ 训练完成，阈值: N/A
+
+📊 Dataset_A - 统计方法-isolation_forest 评估结果:
+============================================================
+              precision    recall  f1-score   support
+
+          正常     1.0000    0.7366    0.8483     15345
+          故障     0.9532    1.0000    0.9760     82342
+
+    accuracy                         0.9586     97687
+   macro avg     0.9766    0.8683    0.9122     97687
+weighted avg     0.9606    0.9586    0.9560     97687
+
+🎯 AUC Score: 0.9998
+💾 统计模型已保存: saved_models\Dataset_A\statistical_isolation_forest_20250616_154135.pkl
+📁 模型和元数据已保存: saved_models\Dataset_A
+
+🤖 测试自编码器方法
+🤖 训练自编码器 (设备: cuda)
+Epoch [20/50], Loss: 0.735467
+Epoch [40/50], Loss: 0.719811
+✅ 训练完成，重构误差阈值: 1.262083
+
+📊 Dataset_A - 自编码器 评估结果:
+============================================================
+              precision    recall  f1-score   support
+
+          正常     1.0000    0.7650    0.8669     15345
+          故障     0.9580    1.0000    0.9786     82342
+
+    accuracy                         0.9631     97687
+   macro avg     0.9790    0.8825    0.9227     97687
+weighted avg     0.9646    0.9631    0.9610     97687
+
+🎯 AUC Score: 1.0000
+💾 自编码器模型已保存: saved_models\Dataset_A\autoencoder_20250616_154206.pth
+📁 模型和元数据已保存: saved_models\Dataset_A
+
+🏆 Dataset_A 结果总结
+==================================================
+statistical_mahalanobis  : AUC = 0.9995
+statistical_euclidean    : AUC = 1.0000
+statistical_isolation_forest: AUC = 0.9998
+autoencoder              : AUC = 1.0000
+
+🥇 最佳方法: statistical_euclidean (AUC: 1.0000)
+
+🚀 开始 Dataset_B 故障诊断测试
+================================================================================
+📂 加载数据集: Dataset_B (bearing_dataset1)
+🚀 正在加载数据...
+处理文件 228/228: OR021@6_3_2.csvv
+✅ 总共加载了 228 个类别的数据
+📊 数据加载耗时: 8.29秒
+  ✅ 正常数据: 4,844 样本
+  ✅ 故障数据: 83,441 样本
+📈 训练用正常数据: 3,390 样本
+📋 测试数据: 88,285 样本 (正常: 4844, 故障: 83441)
+
+🔬 测试统计方法: mahalanobis
+🔧 训练统计异常检测器 (方法: mahalanobis)
+✅ 训练完成，阈值: 36.94558759146227
+
+📊 Dataset_B - 统计方法-mahalanobis 评估结果:
+============================================================
+              precision    recall  f1-score   support
+
+          正常     0.9997    0.7283    0.8427      4844
+          故障     0.9845    1.0000    0.9922     83441
+
+    accuracy                         0.9851     88285
+   macro avg     0.9921    0.8642    0.9174     88285
+weighted avg     0.9853    0.9851    0.9840     88285
+
+🎯 AUC Score: 0.9995
+💾 统计模型已保存: saved_models\Dataset_B\statistical_mahalanobis_20250616_154313.pkl
+📁 模型和元数据已保存: saved_models\Dataset_B
+
+🔬 测试统计方法: euclidean
+🔧 训练统计异常检测器 (方法: euclidean)
+✅ 训练完成，阈值: 35.6183801651001
+
+📊 Dataset_B - 统计方法-euclidean 评估结果:
+============================================================
+              precision    recall  f1-score   support
+
+          正常     0.7220    0.9637    0.8255      4844
+          故障     0.9978    0.9785    0.9881     83441
+
+    accuracy                         0.9777     88285
+   macro avg     0.8599    0.9711    0.9068     88285
+weighted avg     0.9827    0.9777    0.9791     88285
+
+🎯 AUC Score: 0.9857
+💾 统计模型已保存: saved_models\Dataset_B\statistical_euclidean_20250616_154454.pkl
+📁 模型和元数据已保存: saved_models\Dataset_B
+
+🔬 测试统计方法: isolation_forest
+🔧 训练统计异常检测器 (方法: isolation_forest)
+✅ 训练完成，阈值: N/A
+
+📊 Dataset_B - 统计方法-isolation_forest 评估结果:
+============================================================
+              precision    recall  f1-score   support
+
+          正常     0.7009    0.9182    0.7950      4844
+          故障     0.9952    0.9773    0.9861     83441
+
+    accuracy                         0.9740     88285
+   macro avg     0.8480    0.9478    0.8906     88285
+weighted avg     0.9790    0.9740    0.9756     88285
+
+🎯 AUC Score: 0.9848
+💾 统计模型已保存: saved_models\Dataset_B\statistical_isolation_forest_20250616_154553.pkl
+📁 模型和元数据已保存: saved_models\Dataset_B
+
+🤖 测试自编码器方法
+🤖 训练自编码器 (设备: cuda)
+Epoch [20/50], Loss: 0.444006
+Epoch [40/50], Loss: 0.408257
+✅ 训练完成，重构误差阈值: 0.417799
+
+📊 Dataset_B - 自编码器 评估结果:
+============================================================
+              precision    recall  f1-score   support
+
+          正常     0.9894    0.8303    0.9029      4844
+          故障     0.9902    0.9995    0.9948     83441
+
+    accuracy                         0.9902     88285
+   macro avg     0.9898    0.9149    0.9489     88285
+weighted avg     0.9902    0.9902    0.9898     88285
+
+🎯 AUC Score: 0.9997
+💾 自编码器模型已保存: saved_models\Dataset_B\autoencoder_20250616_154604.pth
+📁 模型和元数据已保存: saved_models\Dataset_B
+
+🏆 Dataset_B 结果总结
+==================================================
+statistical_mahalanobis  : AUC = 0.9995
+statistical_euclidean    : AUC = 0.9857
+statistical_isolation_forest: AUC = 0.9848
+autoencoder              : AUC = 0.9997
+
+🥇 最佳方法: autoencoder (AUC: 0.9997)
+
+====================================================================================================
+🏆 综合结果总览
+====================================================================================================
+方法                             Dataset_A      Dataset_B
+-------------------------------------------------------
+autoencoder                       1.0000         0.9997
+statistical_euclidean             1.0000         0.9857
+statistical_isolation_forest         0.9998         0.9848
+statistical_mahalanobis           0.9995         0.9995
+
+🏅 各数据集最佳方法:
+  Dataset_A: statistical_euclidean (AUC: 1.0000)
+  Dataset_B: autoencoder (AUC: 0.9997)
+
+📂 已保存的模型:
+================================================================================
+
+📁 Dataset_A:
+  🏆 autoencoder         : AUC=1.0000, 时间=20250616_154206
+  🏆 statistical_euclidean: AUC=1.0000, 时间=20250616_154047
+  🏆 statistical_isolation_forest: AUC=0.9998, 时间=20250616_154135
+  🏆 statistical_mahalanobis: AUC=0.9995, 时间=20250616_154044
+
+📁 Dataset_B:
+  🏆 autoencoder         : AUC=0.9997, 时间=20250616_154604
+  🏆 statistical_euclidean: AUC=0.9857, 时间=20250616_154454
+  🏆 statistical_isolation_forest: AUC=0.9848, 时间=20250616_154553
+  🏆 statistical_mahalanobis: AUC=0.9995, 时间=20250616_154313
+
+================================================================================
+
+================================================================================
+🔍 模式2: 加载保存的模型进行测试
+================================================================================

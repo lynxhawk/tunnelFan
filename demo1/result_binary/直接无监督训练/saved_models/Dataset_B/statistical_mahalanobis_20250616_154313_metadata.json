@@ -1,0 +1,9 @@
+{
+  "dataset_name": "Dataset_B",
+  "method": "statistical_mahalanobis",
+  "auc_score": 0.9994998023247604,
+  "train_normal_size": 3390,
+  "timestamp": "20250616_154313",
+  "model_file": "statistical_mahalanobis_20250616_154313.pkl",
+  "device": "cuda"
+}
