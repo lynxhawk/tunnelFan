@@ -1,0 +1,118 @@
+   GPU设备: NVIDIA GeForce RTX 4060 Ti
+Epoch [  1/100] | Train Loss: 0.0183 | Train Acc: 99.53% | Val Loss: 0.0299 | Val Acc: 98.30% | LR: 1.00e-03 | Time: 10.2s
+Epoch [  2/100] | Train Loss: 0.0061 | Train Acc: 99.81% | Val Loss: 0.0114 | Val Acc: 99.51% | LR: 1.00e-03 | Time: 6.7s                                                                                                  
+Epoch [  3/100] | Train Loss: 0.0053 | Train Acc: 99.83% | Val Loss: 0.0087 | Val Acc: 99.60% | LR: 1.00e-03 | Time: 6.4s                                                                                                  
+Epoch [  4/100] | Train Loss: 0.0054 | Train Acc: 99.84% | Val Loss: 0.0166 | Val Acc: 99.29% | LR: 1.00e-03 | Time: 6.7s                                                                                                  
+Epoch [  5/100] | Train Loss: 0.0047 | Train Acc: 99.87% | Val Loss: 0.0093 | Val Acc: 99.65% | LR: 1.00e-03 | Time: 6.7s                                                                                                  
+Epoch [  6/100] | Train Loss: 0.0041 | Train Acc: 99.88% | Val Loss: 0.0006 | Val Acc: 99.96% | LR: 1.00e-03 | Time: 6.8s                                                                                                  
+Epoch [  7/100] | Train Loss: 0.0039 | Train Acc: 99.89% | Val Loss: 0.0032 | Val Acc: 99.89% | LR: 1.00e-03 | Time: 6.5s                                                                                                  
+Epoch [  8/100] | Train Loss: 0.0045 | Train Acc: 99.89% | Val Loss: 0.0116 | Val Acc: 99.64% | LR: 1.00e-03 | Time: 6.5s                                                                                                  
+Epoch [  9/100] | Train Loss: 0.0055 | Train Acc: 99.88% | Val Loss: 0.0069 | Val Acc: 99.63% | LR: 1.00e-03 | Time: 6.5s                                                                                                  
+Epoch [ 10/100] | Train Loss: 0.0042 | Train Acc: 99.90% | Val Loss: 0.0107 | Val Acc: 99.54% | LR: 1.00e-03 | Time: 6.7s                                                                                                  
+Epoch [ 11/100] | Train Loss: 0.0033 | Train Acc: 99.91% | Val Loss: 0.0015 | Val Acc: 99.93% | LR: 1.00e-03 | Time: 6.6s                                                                                                  
+Epoch [ 12/100] | Train Loss: 0.0041 | Train Acc: 99.89% | Val Loss: 0.0139 | Val Acc: 99.42% | LR: 1.00e-03 | Time: 6.6s                                                                                                  
+Epoch [ 13/100] | Train Loss: 0.0030 | Train Acc: 99.91% | Val Loss: 0.0175 | Val Acc: 99.30% | LR: 1.00e-03 | Time: 6.5s                                                                                                  
+Epoch [ 14/100] | Train Loss: 0.0027 | Train Acc: 99.92% | Val Loss: 0.0174 | Val Acc: 99.30% | LR: 1.00e-03 | Time: 6.5s                                                                                                  
+Epoch [ 15/100] | Train Loss: 0.0033 | Train Acc: 99.92% | Val Loss: 0.0038 | Val Acc: 99.85% | LR: 1.00e-03 | Time: 6.5s                                                                                                  
+Epoch [ 16/100] | Train Loss: 0.0033 | Train Acc: 99.91% | Val Loss: 0.0006 | Val Acc: 99.96% | LR: 1.00e-03 | Time: 6.6s                                                                                                  
+Epoch [ 17/100] | Train Loss: 0.0030 | Train Acc: 99.92% | Val Loss: 0.0044 | Val Acc: 99.79% | LR: 1.00e-03 | Time: 6.7s                                                                                                  
+Epoch [ 18/100] | Train Loss: 0.0023 | Train Acc: 99.93% | Val Loss: 0.0075 | Val Acc: 99.66% | LR: 1.00e-03 | Time: 6.6s                                                                                                  
+Epoch [ 19/100] | Train Loss: 0.0028 | Train Acc: 99.92% | Val Loss: 0.0012 | Val Acc: 99.94% | LR: 1.00e-03 | Time: 6.5s                                                                                                  
+Epoch [ 20/100] | Train Loss: 0.0033 | Train Acc: 99.90% | Val Loss: 0.0035 | Val Acc: 99.79% | LR: 1.00e-03 | Time: 6.5s                                                                                                  
+Epoch [ 21/100] | Train Loss: 0.0033 | Train Acc: 99.92% | Val Loss: 0.0012 | Val Acc: 99.92% | LR: 1.00e-03 | Time: 6.6s                                                                                                  
+
+⏹️  早停触发！验证精度在 15 个epoch内未改善
+
+✅ 训练完成！
+📊 训练统计:
+  总训练时间: 2.4 分钟
+  最佳验证精度: 99.96%
+  最终学习率: 1.00e-03
+✅ 已加载最佳模型权重
+
+==================== 步骤5: 训练结果可视化 ====================
+
+==================== 步骤6: 模型测试 ====================
+
+🧪 开始模型评估...
+Testing:   0%|                                                                                                                                                                                   | 0/1380 [00:00<?, ?it/s] 🔍 PyTorch版本: 2.7.0+cu126
+🔍 PyTorch版本: 2.7.0+cu126
+🖥️  CUDA可用: True
+🔍 PyTorch版本: 2.7.0+cu126
+   GPU设备: NVIDIA GeForce RTX 4060 Ti
+🔍 PyTorch版本: 2.7.0+cu126
+🖥️  CUDA可用: True
+🖥️  CUDA可用: True
+   GPU设备: NVIDIA GeForce RTX 4060 Ti
+🖥️  CUDA可用: True
+   GPU设备: NVIDIA GeForce RTX 4060 Ti
+   GPU设备: NVIDIA GeForce RTX 4060 Ti
+Testing: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1380/1380 [00:05<00:00, 261.72it/s]
+
+📊 测试结果:
+  测试损失: 5.7288
+  准确率: 46.72%
+  精确率: 95.03%
+  召回率: 46.72%
+  F1分数: 58.36%
+
+📋 详细分类报告:
+              precision    recall  f1-score   support
+
+      Normal       0.09      1.00      0.17      4844
+       Fault       1.00      0.44      0.61     83441
+
+    accuracy                           0.47     88285
+   macro avg       0.55      0.72      0.39     88285
+weighted avg       0.95      0.47      0.58     88285
+
+
+==================== 步骤7: 性能总结 ====================
+
+📈 数据处理性能摘要:
+  总耗时: 32.52秒
+  数据加载: 14.85s (45.7%)
+  窗口创建: 0.77s (2.4%)
+  数据标准化: 16.90s (52.0%)
+
+🎉 训练和测试完成!
+📊 最终性能指标:
+  测试准确率: 46.72%
+  测试精确率: 95.03%
+  测试召回率: 46.72%
+  测试F1分数: 58.36%
+
+💾 结果已保存:
+  模型文件: best_binary_cnn_model.pth
+  结果文件: training_results.pkl
+  图表文件: training_history.png, confusion_matrix.png
+✅ 训练完成!
+
+请选择操作:
+  测试F1分数: 58.36%
+
+💾 结果已保存:
+  模型文件: best_binary_cnn_model.pth
+  结果文件: training_results.pkl
+  图表文件: training_history.png, confusion_matrix.png
+✅ 训练完成!
+
+  测试F1分数: 58.36%
+
+💾 结果已保存:
+  模型文件: best_binary_cnn_model.pth
+  结果文件: training_results.pkl
+  图表文件: training_history.png, confusion_matrix.png
+  测试F1分数: 58.36%
+
+💾 结果已保存:
+  测试F1分数: 58.36%
+
+💾 结果已保存:
+  模型文件: best_binary_cnn_model.pth
+  结果文件: training_results.pkl
+  图表文件: training_history.png, confusion_matrix.png
+✅ 训练完成!
+
+  图表文件: training_history.png, confusion_matrix.png
+✅ 训练完成!
