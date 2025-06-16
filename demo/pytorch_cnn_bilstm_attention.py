@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
+import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, classification_report
 
@@ -431,26 +432,50 @@ def visualize_learning_curves(history):
     plt.show()
 
 
-def visualize_confusion_matrix(cm, class_names=None):
+def visualize_confusion_matrix(cm, class_names):
     """
     可视化混淆矩阵
-
+    
     参数:
     - cm: 混淆矩阵
-    - class_names: 类别名称(可选)
+    - class_names: 类别名称列表
     """
-    import seaborn as sns
-
-    plt.figure(figsize=(20, 16))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
-                xticklabels=class_names if class_names else "auto",
-                yticklabels=class_names if class_names else "auto")
-    plt.xlabel('prediction')
-    plt.ylabel('ground truth')
-    plt.title('Confusion Matrix')
+    plt.figure(figsize=(12, 10))
+    
+    # 使用数字标签代替类别名称
+    numeric_labels = [str(i) for i in range(len(class_names))]
+    
+    # 检查数据类型，如果是浮点数则使用浮点格式
+    fmt = 'd' if cm.dtype.kind in ['i', 'u'] else '.0f'
+    
+    # 创建热力图，增大字体
+    sns.heatmap(cm, annot=True, fmt=fmt, cmap='Blues',
+                xticklabels=numeric_labels, 
+                yticklabels=numeric_labels,
+                annot_kws={'size': 14},  # 增大注释字体
+                cbar_kws={'shrink': 0.8})
+    
+    # 设置标题和标签，增大字体
+    plt.title('Confusion Matrix', fontsize=18, fontweight='bold')
+    plt.xlabel('Predicted Label', fontsize=16)
+    plt.ylabel('True Label', fontsize=16)
+    
+    # 增大坐标轴刻度字体
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    
+    # 增大颜色条字体
+    cbar = plt.gca().collections[0].colorbar
+    cbar.ax.tick_params(labelsize=12)
+    
     plt.tight_layout()
-    plt.savefig('confusion_matrix_pytorch.png', dpi=300)
+    plt.savefig('confusion_matrix.png', dpi=300, bbox_inches='tight')
     plt.show()
+    
+    # 打印类别映射关系
+    print("\n类别映射关系:")
+    for i, name in enumerate(class_names):
+        print(f"{i}: {name}")
 
 
 def visualize_attention_weights(model, test_loader, device, num_samples=3):
