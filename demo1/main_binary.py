@@ -15,6 +15,7 @@ import pickle
 import json
 from datetime import datetime
 import warnings
+from advanced_models import VAEFaultDetector, FeatureBasedAnomalyDetector
 warnings.filterwarnings('ignore')
 
 # 导入你的数据处理器
@@ -480,7 +481,7 @@ class DatasetSpecificFaultDiagnosis:
         
         # 查找所有该方法的元数据文件
         metadata_files = [f for f in os.listdir(self.dataset_model_dir) 
-                         if f.startswith(f"{method_name}_") and f.endswith("_metadata.json")]
+                        if f.startswith(f"{method_name}_") and f.endswith("_metadata.json")]
         
         if not metadata_files:
             raise FileNotFoundError(f"未找到方法 {method_name} 的模型")
@@ -507,6 +508,14 @@ class DatasetSpecificFaultDiagnosis:
         if method_name == "autoencoder":
             model = AutoencoderAnomalyDetector()
             model.load_model(model_path)
+        # ========== 新增部分：支持新方法的加载 ==========
+        elif method_name == "vae":
+            model = VAEFaultDetector()
+            model.load_model(model_path)
+        elif method_name == "feature_autoencoder":
+            model = FeatureBasedAnomalyDetector()
+            model.load_model(model_path)
+        # ========== 新增部分结束 ==========
         else:
             # 统计方法
             model = StatisticalAnomalyDetector()
@@ -540,7 +549,7 @@ class DatasetSpecificFaultDiagnosis:
         
         results = {}
         
-        # 1. 统计方法
+        # 1. 统计方法 (保持不变)
         statistical_methods = ['mahalanobis', 'euclidean', 'isolation_forest']
         
         for method in statistical_methods:
@@ -552,7 +561,7 @@ class DatasetSpecificFaultDiagnosis:
                 
                 predictions, scores = detector.predict(test_data)
                 auc = self.evaluate_method(predictions, scores, test_labels, 
-                                         f"统计方法-{method}")
+                                        f"统计方法-{method}")
                 results[f"statistical_{method}"] = auc
                 
                 # 保存模型
@@ -562,7 +571,7 @@ class DatasetSpecificFaultDiagnosis:
                 print(f"⚠️ 方法 {method} 失败: {e}")
                 results[f"statistical_{method}"] = 0
         
-        # 2. 自编码器方法
+        # 2. 自编码器方法 (保持不变)
         print(f"\n🤖 测试自编码器方法")
         
         try:
@@ -585,7 +594,58 @@ class DatasetSpecificFaultDiagnosis:
             print(f"⚠️ 自编码器方法失败: {e}")
             results["autoencoder"] = 0
         
-        # 结果总结
+        # ========== 新增部分：高级方法 ==========
+        
+        # 3. VAE方法
+        print(f"\n🧠 测试VAE方法")
+        
+        try:
+            vae_detector = VAEFaultDetector(
+                latent_dim=64,
+                epochs=50,
+                batch_size=64,
+                lr=0.001,
+                beta=0.5  # KL散度权重
+            )
+            vae_detector.fit(train_normal)
+            
+            predictions, scores = vae_detector.predict(test_data)
+            auc = self.evaluate_method(predictions, scores, test_labels, "VAE")
+            results["vae"] = auc
+            
+            # 保存模型
+            self.save_model_with_metadata(vae_detector, "vae", auc, len(train_normal))
+            
+        except Exception as e:
+            print(f"⚠️ VAE方法失败: {e}")
+            results["vae"] = 0
+        
+        # 4. 特征工程+自编码器方法
+        print(f"\n🔧 测试特征工程+自编码器方法")
+        
+        try:
+            feature_detector = FeatureBasedAnomalyDetector(
+                latent_dim=32,
+                epochs=50,
+                batch_size=32,
+                lr=0.001
+            )
+            feature_detector.fit(train_normal)
+            
+            predictions, scores = feature_detector.predict(test_data)
+            auc = self.evaluate_method(predictions, scores, test_labels, "特征工程+自编码器")
+            results["feature_autoencoder"] = auc
+            
+            # 保存模型
+            self.save_model_with_metadata(feature_detector, "feature_autoencoder", auc, len(train_normal))
+            
+        except Exception as e:
+            print(f"⚠️ 特征工程+自编码器方法失败: {e}")
+            results["feature_autoencoder"] = 0
+        
+        # ========== 新增部分结束 ==========
+        
+        # 结果总结 (保持不变)
         print(f"\n🏆 {self.dataset_name} 结果总结")
         print("=" * 50)
         for method, auc in results.items():
