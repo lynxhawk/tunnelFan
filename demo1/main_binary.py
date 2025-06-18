@@ -21,6 +21,16 @@ warnings.filterwarnings('ignore')
 # 导入你的数据处理器
 from data_loader import OptimizedBearingDataProcessor
 
+import time
+from contextlib import contextmanager
+
+@contextmanager
+def timer():
+    """计时器上下文管理器"""
+    start = time.time()
+    yield
+    end = time.time()
+    return end - start
 
 class StatisticalAnomalyDetector:
     """基于统计距离的无监督异常检测器"""
@@ -408,16 +418,31 @@ class DatasetSpecificFaultDiagnosis:
         
         return normal_data, fault_data
     
-    def evaluate_method(self, predictions, scores, true_labels, method_name):
-        """评估方法性能"""
+    def evaluate_method(self, predictions, scores, true_labels, method_name, train_time=0, test_time=0):
+        """评估方法性能 - 添加时间统计"""
         print(f"\n📊 {self.dataset_name} - {method_name} 评估结果:")
         print("=" * 60)
         
+        # 计算精确度指标
+        from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
+        
+        accuracy = accuracy_score(true_labels, predictions)
+        precision = precision_score(true_labels, predictions, zero_division=0)
+        recall = recall_score(true_labels, predictions, zero_division=0)
+        f1 = f1_score(true_labels, predictions, zero_division=0)
+        
         # 分类报告
         report = classification_report(true_labels, predictions, 
-                                     target_names=['正常', '故障'], 
-                                     digits=4)
+                                    target_names=['正常', '故障'], 
+                                    digits=4)
         print(report)
+        
+        # 精确度指标
+        print(f"📈 详细精确度指标:")
+        print(f"   准确率 (Accuracy): {accuracy:.4f}")
+        print(f"   精确率 (Precision): {precision:.4f}")
+        print(f"   召回率 (Recall): {recall:.4f}")
+        print(f"   F1分数: {f1:.4f}")
         
         # AUC分数
         try:
@@ -427,20 +452,37 @@ class DatasetSpecificFaultDiagnosis:
             print("⚠️ 无法计算AUC")
             auc = 0
         
+        # 时间统计
+        print(f"⏱️  性能统计:")
+        print(f"   训练时间: {train_time:.2f}秒")
+        print(f"   测试时间: {test_time:.2f}秒")
+        print(f"   总时间: {train_time + test_time:.2f}秒")
+        
         # 混淆矩阵
         cm = confusion_matrix(true_labels, predictions)
         
         plt.figure(figsize=(8, 6))
         sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
-                   xticklabels=['正常', '故障'], 
-                   yticklabels=['正常', '故障'])
+                xticklabels=['正常', '故障'], 
+                yticklabels=['正常', '故障'])
         plt.title(f'{self.dataset_name} - {method_name} 混淆矩阵')
         plt.ylabel('真实标签')
         plt.xlabel('预测标签')
         plt.tight_layout()
         plt.show()
         
-        return auc
+        # 返回所有指标
+        return {
+            'auc': auc,
+            'accuracy': accuracy,
+            'precision': precision,
+            'recall': recall,
+            'f1': f1,
+            'train_time': train_time,
+            'test_time': test_time,
+            'total_time': train_time + test_time
+        }
+
     
     def save_model_with_metadata(self, model, method_name, auc_score, train_normal_size):
         """保存模型及其元数据"""
@@ -525,7 +567,7 @@ class DatasetSpecificFaultDiagnosis:
         return model, best_metadata
     
     def run_all_methods(self):
-        """运行所有方法"""
+        """运行所有方法 - 添加时间统计"""
         print(f"\n🚀 开始 {self.dataset_name} 故障诊断测试")
         print("=" * 80)
         
@@ -549,7 +591,7 @@ class DatasetSpecificFaultDiagnosis:
         
         results = {}
         
-        # 1. 统计方法 (保持不变)
+        # 1. 统计方法
         statistical_methods = ['mahalanobis', 'euclidean', 'isolation_forest']
         
         for method in statistical_methods:
@@ -557,44 +599,69 @@ class DatasetSpecificFaultDiagnosis:
             
             try:
                 detector = StatisticalAnomalyDetector(method=method)
-                detector.fit(train_normal)
                 
+                # 训练计时
+                train_start = time.time()
+                detector.fit(train_normal)
+                train_time = time.time() - train_start
+                
+                # 测试计时
+                test_start = time.time()
                 predictions, scores = detector.predict(test_data)
-                auc = self.evaluate_method(predictions, scores, test_labels, 
-                                        f"统计方法-{method}")
-                results[f"statistical_{method}"] = auc
+                test_time = time.time() - test_start
+                
+                # 评估
+                metrics = self.evaluate_method(predictions, scores, test_labels, 
+                                            f"统计方法-{method}", train_time, test_time)
+                results[f"statistical_{method}"] = metrics
                 
                 # 保存模型
-                self.save_model_with_metadata(detector, f"statistical_{method}", auc, len(train_normal))
+                self.save_model_with_metadata(detector, f"statistical_{method}", 
+                                            metrics['auc'], len(train_normal))
                 
             except Exception as e:
                 print(f"⚠️ 方法 {method} 失败: {e}")
-                results[f"statistical_{method}"] = 0
+                results[f"statistical_{method}"] = {
+                    'auc': 0, 'accuracy': 0, 'precision': 0, 'recall': 0, 'f1': 0,
+                    'train_time': 0, 'test_time': 0, 'total_time': 0
+                }
         
-        # 2. 自编码器方法 (保持不变)
+        # 2. 自编码器方法
         print(f"\n🤖 测试自编码器方法")
         
         try:
             ae_detector = AutoencoderAnomalyDetector(
                 latent_dim=64, 
-                epochs=50,  # 减少训练轮数以节省时间
+                epochs=50,
                 batch_size=64,
                 lr=0.001
             )
-            ae_detector.fit(train_normal)
             
+            # 训练计时
+            train_start = time.time()
+            ae_detector.fit(train_normal)
+            train_time = time.time() - train_start
+            
+            # 测试计时
+            test_start = time.time()
             predictions, scores = ae_detector.predict(test_data)
-            auc = self.evaluate_method(predictions, scores, test_labels, "自编码器")
-            results["autoencoder"] = auc
+            test_time = time.time() - test_start
+            
+            # 评估
+            metrics = self.evaluate_method(predictions, scores, test_labels, 
+                                        "自编码器", train_time, test_time)
+            results["autoencoder"] = metrics
             
             # 保存模型
-            self.save_model_with_metadata(ae_detector, "autoencoder", auc, len(train_normal))
+            self.save_model_with_metadata(ae_detector, "autoencoder", 
+                                        metrics['auc'], len(train_normal))
             
         except Exception as e:
             print(f"⚠️ 自编码器方法失败: {e}")
-            results["autoencoder"] = 0
-        
-        # ========== 新增部分：高级方法 ==========
+            results["autoencoder"] = {
+                'auc': 0, 'accuracy': 0, 'precision': 0, 'recall': 0, 'f1': 0,
+                'train_time': 0, 'test_time': 0, 'total_time': 0
+            }
         
         # 3. VAE方法
         print(f"\n🧠 测试VAE方法")
@@ -605,20 +672,34 @@ class DatasetSpecificFaultDiagnosis:
                 epochs=50,
                 batch_size=64,
                 lr=0.001,
-                beta=0.5  # KL散度权重
+                beta=0.5
             )
-            vae_detector.fit(train_normal)
             
+            # 训练计时
+            train_start = time.time()
+            vae_detector.fit(train_normal)
+            train_time = time.time() - train_start
+            
+            # 测试计时
+            test_start = time.time()
             predictions, scores = vae_detector.predict(test_data)
-            auc = self.evaluate_method(predictions, scores, test_labels, "VAE")
-            results["vae"] = auc
+            test_time = time.time() - test_start
+            
+            # 评估
+            metrics = self.evaluate_method(predictions, scores, test_labels, 
+                                        "VAE", train_time, test_time)
+            results["vae"] = metrics
             
             # 保存模型
-            self.save_model_with_metadata(vae_detector, "vae", auc, len(train_normal))
+            self.save_model_with_metadata(vae_detector, "vae", 
+                                        metrics['auc'], len(train_normal))
             
         except Exception as e:
             print(f"⚠️ VAE方法失败: {e}")
-            results["vae"] = 0
+            results["vae"] = {
+                'auc': 0, 'accuracy': 0, 'precision': 0, 'recall': 0, 'f1': 0,
+                'train_time': 0, 'test_time': 0, 'total_time': 0
+            }
         
         # 4. 特征工程+自编码器方法
         print(f"\n🔧 测试特征工程+自编码器方法")
@@ -630,29 +711,58 @@ class DatasetSpecificFaultDiagnosis:
                 batch_size=32,
                 lr=0.001
             )
-            feature_detector.fit(train_normal)
             
+            # 训练计时
+            train_start = time.time()
+            feature_detector.fit(train_normal)
+            train_time = time.time() - train_start
+            
+            # 测试计时
+            test_start = time.time()
             predictions, scores = feature_detector.predict(test_data)
-            auc = self.evaluate_method(predictions, scores, test_labels, "特征工程+自编码器")
-            results["feature_autoencoder"] = auc
+            test_time = time.time() - test_start
+            
+            # 评估
+            metrics = self.evaluate_method(predictions, scores, test_labels, 
+                                        "特征工程+自编码器", train_time, test_time)
+            results["feature_autoencoder"] = metrics
             
             # 保存模型
-            self.save_model_with_metadata(feature_detector, "feature_autoencoder", auc, len(train_normal))
+            self.save_model_with_metadata(feature_detector, "feature_autoencoder", 
+                                        metrics['auc'], len(train_normal))
             
         except Exception as e:
             print(f"⚠️ 特征工程+自编码器方法失败: {e}")
-            results["feature_autoencoder"] = 0
+            results["feature_autoencoder"] = {
+                'auc': 0, 'accuracy': 0, 'precision': 0, 'recall': 0, 'f1': 0,
+                'train_time': 0, 'test_time': 0, 'total_time': 0
+            }
         
-        # ========== 新增部分结束 ==========
-        
-        # 结果总结 (保持不变)
+        # 结果总结 - 修改这部分
         print(f"\n🏆 {self.dataset_name} 结果总结")
-        print("=" * 50)
-        for method, auc in results.items():
-            print(f"{method:25s}: AUC = {auc:.4f}")
+        print("=" * 80)
         
-        best_method = max(results, key=results.get)
-        print(f"\n🥇 最佳方法: {best_method} (AUC: {results[best_method]:.4f})")
+        # 创建结果表格
+        import pandas as pd
+        
+        df_results = pd.DataFrame(results).T
+        df_results = df_results.round(4)
+        
+        print("📊 详细性能对比:")
+        print(df_results.to_string())
+        
+        # 分别找出各指标的最佳方法
+        print(f"\n🥇 各指标最佳方法:")
+        for metric in ['auc', 'accuracy', 'precision', 'recall', 'f1']:
+            best_method = df_results[metric].idxmax()
+            best_score = df_results[metric].max()
+            print(f"  {metric.upper():10s}: {best_method:25s} ({best_score:.4f})")
+        
+        # 速度对比
+        print(f"\n⚡ 速度对比:")
+        print(f"  最快训练: {df_results['train_time'].idxmin():25s} ({df_results['train_time'].min():.2f}秒)")
+        print(f"  最快测试: {df_results['test_time'].idxmin():25s} ({df_results['test_time'].min():.2f}秒)")
+        print(f"  最快总时间: {df_results['total_time'].idxmin():25s} ({df_results['total_time'].min():.2f}秒)")
         
         return results
 
@@ -709,10 +819,10 @@ class ComprehensiveFaultDiagnosis:
         return all_results
     
     def print_comprehensive_results(self, all_results):
-        """打印综合结果"""
-        print("\n" + "="*100)
+        """打印综合结果 - 添加所有指标对比"""
+        print("\n" + "="*120)
         print("🏆 综合结果总览")
-        print("="*100)
+        print("="*120)
         
         # 获取所有方法名
         all_methods = set()
@@ -720,7 +830,8 @@ class ComprehensiveFaultDiagnosis:
             all_methods.update(dataset_results.keys())
         all_methods = sorted(list(all_methods))
         
-        # 打印表格
+        # 打印AUC对比表格
+        print("\n📈 AUC分数对比:")
         print(f"{'方法':<25s}", end="")
         for dataset_name in self.datasets_config.keys():
             print(f"{dataset_name:>15s}", end="")
@@ -730,16 +841,81 @@ class ComprehensiveFaultDiagnosis:
         for method in all_methods:
             print(f"{method:<25s}", end="")
             for dataset_name in self.datasets_config.keys():
-                auc = all_results[dataset_name].get(method, 0)
+                auc = all_results[dataset_name].get(method, {}).get('auc', 0)
                 print(f"{auc:>15.4f}", end="")
             print()
         
+        # 打印准确率对比表格
+        print("\n🎯 准确率对比:")
+        print(f"{'方法':<25s}", end="")
+        for dataset_name in self.datasets_config.keys():
+            print(f"{dataset_name:>15s}", end="")
+        print()
+        print("-" * (25 + 15 * len(self.datasets_config)))
+        
+        for method in all_methods:
+            print(f"{method:<25s}", end="")
+            for dataset_name in self.datasets_config.keys():
+                accuracy = all_results[dataset_name].get(method, {}).get('accuracy', 0)
+                print(f"{accuracy:>15.4f}", end="")
+            print()
+        
+        # 打印训练时间对比表格
+        print("\n⏱️  训练时间对比 (秒):")
+        print(f"{'方法':<25s}", end="")
+        for dataset_name in self.datasets_config.keys():
+            print(f"{dataset_name:>15s}", end="")
+        print()
+        print("-" * (25 + 15 * len(self.datasets_config)))
+        
+        for method in all_methods:
+            print(f"{method:<25s}", end="")
+            for dataset_name in self.datasets_config.keys():
+                train_time = all_results[dataset_name].get(method, {}).get('train_time', 0)
+                print(f"{train_time:>15.2f}", end="")
+            print()
+        
+        # 打印测试时间对比表格
+        print("\n⚡ 测试时间对比 (秒):")
+        print(f"{'方法':<25s}", end="")
+        for dataset_name in self.datasets_config.keys():
+            print(f"{dataset_name:>15s}", end="")
+        print()
+        print("-" * (25 + 15 * len(self.datasets_config)))
+        
+        for method in all_methods:
+            print(f"{method:<25s}", end="")
+            for dataset_name in self.datasets_config.keys():
+                test_time = all_results[dataset_name].get(method, {}).get('test_time', 0)
+                print(f"{test_time:>15.2f}", end="")
+            print()
+        
         # 找出每个数据集的最佳方法
-        print(f"\n🏅 各数据集最佳方法:")
+        print(f"\n🏅 各数据集最佳方法 (基于AUC):")
         for dataset_name, dataset_results in all_results.items():
-            best_method = max(dataset_results, key=dataset_results.get)
-            best_auc = dataset_results[best_method]
-            print(f"  {dataset_name}: {best_method} (AUC: {best_auc:.4f})")
+            if dataset_results:
+                best_method = max(dataset_results, 
+                                key=lambda x: dataset_results[x].get('auc', 0))
+                best_metrics = dataset_results[best_method]
+                print(f"  {dataset_name}: {best_method}")
+                print(f"    AUC: {best_metrics.get('auc', 0):.4f}, "
+                    f"准确率: {best_metrics.get('accuracy', 0):.4f}, "
+                    f"训练时间: {best_metrics.get('train_time', 0):.2f}秒")
+        
+        # 综合性能排名
+        print(f"\n🏆 综合性能排名 (AUC平均值):")
+        method_avg_auc = {}
+        for method in all_methods:
+            aucs = []
+            for dataset_results in all_results.values():
+                if method in dataset_results:
+                    aucs.append(dataset_results[method].get('auc', 0))
+            if aucs:
+                method_avg_auc[method] = np.mean(aucs)
+        
+        sorted_methods = sorted(method_avg_auc.items(), key=lambda x: x[1], reverse=True)
+        for i, (method, avg_auc) in enumerate(sorted_methods, 1):
+            print(f"  {i:2d}. {method:25s}: {avg_auc:.4f}")
     
     def load_and_test_saved_model(self, dataset_name, method_name, test_data, test_labels):
         """加载保存的模型进行测试"""
