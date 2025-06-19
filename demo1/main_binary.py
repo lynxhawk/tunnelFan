@@ -495,6 +495,12 @@ class DatasetSpecificFaultDiagnosis:
         model_filename = f"{method_name}_{timestamp}.pkl"
         if method_name == "autoencoder":
             model_filename = f"{method_name}_{timestamp}.pth"
+        if method_name in ["autoencoder", "vae"]:
+            model_filename = f"{method_name}_{timestamp}.pth"
+        elif method_name == "feature_autoencoder":
+            model_filename = f"{method_name}_{timestamp}.pkl"
+        else:
+            model_filename = f"{method_name}_{timestamp}.pkl"
         
         model_path = os.path.join(self.dataset_model_dir, model_filename)
         model.save_model(model_path)

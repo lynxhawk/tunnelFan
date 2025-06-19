@@ -1,0 +1,9 @@
+{
+  "dataset_name": "Dataset_B",
+  "method": "statistical_isolation_forest",
+  "auc_score": 0.9848374149978905,
+  "train_normal_size": 3390,
+  "timestamp": "20250619_104458",
+  "model_file": "statistical_isolation_forest_20250619_104458.pkl",
+  "device": "cpu"
+}

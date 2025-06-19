@@ -1,0 +1,9 @@
+{
+  "dataset_name": "Dataset_B",
+  "method": "autoencoder",
+  "auc_score": 0.9996663386049731,
+  "train_normal_size": 3390,
+  "timestamp": "20250619_104549",
+  "model_file": "autoencoder_20250619_104549.pth",
+  "device": "cpu"
+}

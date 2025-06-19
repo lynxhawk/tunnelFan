@@ -1,0 +1,9 @@
+{
+  "dataset_name": "Dataset_B",
+  "method": "statistical_euclidean",
+  "auc_score": 0.9856620729089857,
+  "train_normal_size": 3390,
+  "timestamp": "20250619_104452",
+  "model_file": "statistical_euclidean_20250619_104452.pkl",
+  "device": "cpu"
+}

@@ -1,0 +1,9 @@
+{
+  "dataset_name": "Dataset_A",
+  "method": "statistical_mahalanobis",
+  "auc_score": 0.9994928668508021,
+  "train_normal_size": 10741,
+  "timestamp": "20250619_100611",
+  "model_file": "statistical_mahalanobis_20250619_100611.pkl",
+  "device": "cpu"
+}

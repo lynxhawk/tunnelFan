@@ -1,0 +1,47 @@
+# 深度学习框架
+torch>=1.11.0
+torchvision>=0.12.0
+torchaudio>=0.11.0
+
+# 数据处理和科学计算
+numpy>=1.21.0
+pandas>=1.3.0
+scipy>=1.7.0
+
+# 机器学习
+scikit-learn>=1.0.0
+
+# 信号处理和小波变换
+PyWavelets>=1.3.0
+librosa>=0.9.0
+
+# 数据可视化
+matplotlib>=3.5.0
+seaborn>=0.11.0
+
+# 其他工具库
+pickle-mixin>=1.0.2
+warnings
+contextlib
+datetime
+time
+json
+os
+typing
+
+# 可选：CUDA支持（如果使用GPU）
+# 注意：根据你的CUDA版本选择对应的torch版本
+# 访问 https://pytorch.org/get-started/locally/ 获取正确的安装命令
+
+# 建议的安装顺序：
+# 1. 首先安装torch（根据你的CUDA版本）
+# 2. 然后安装其他依赖
+#
+# 对于CPU版本：
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+#
+# 对于CUDA 11.8版本：
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+#
+# 对于CUDA 12.1版本：
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121

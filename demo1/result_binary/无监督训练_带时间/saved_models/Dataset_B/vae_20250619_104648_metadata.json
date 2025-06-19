@@ -1,0 +1,9 @@
+{
+  "dataset_name": "Dataset_B",
+  "method": "vae",
+  "auc_score": 0,
+  "train_normal_size": 3390,
+  "timestamp": "20250619_104648",
+  "model_file": "vae_20250619_104648.pth",
+  "device": "cpu"
+}

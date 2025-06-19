@@ -9,6 +9,7 @@ import pywt
 import librosa
 from typing import Tuple, Dict
 import warnings
+import pickle
 warnings.filterwarnings('ignore')
 
 
@@ -210,6 +211,52 @@ class VAEFaultDetector:
         predictions = (anomaly_scores > self.threshold).astype(int)
         
         return predictions, anomaly_scores
+    
+    def save_model(self, filepath):
+        """保存VAE模型"""
+        if not self.is_fitted:
+            raise ValueError("模型未训练，无法保存")
+        
+        # 保存模型状态字典和其他必要信息
+        model_state = {
+            'model_state_dict': self.model.state_dict(),
+            'input_dim': self.model.input_dim,
+            'latent_dim': self.latent_dim,
+            'hidden_dims': [512, 256, 128],  # 默认隐藏层维度
+            'threshold': self.threshold,
+            'scaler': self.scaler,
+            'beta': self.beta,
+            'epochs': self.epochs,
+            'batch_size': self.batch_size,
+            'lr': self.lr
+        }
+        
+        torch.save(model_state, filepath)
+        print(f"💾 VAE模型已保存: {filepath}")
+    
+    def load_model(self, filepath):
+        """加载VAE模型"""
+        checkpoint = torch.load(filepath, map_location=self.device)
+        
+        # 重建模型
+        input_dim = checkpoint['input_dim']
+        self.latent_dim = checkpoint['latent_dim']
+        hidden_dims = checkpoint.get('hidden_dims', [512, 256, 128])
+        
+        self.model = VAEAnomalyDetector(input_dim, self.latent_dim, hidden_dims).to(self.device)
+        
+        # 加载模型参数
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.threshold = checkpoint['threshold']
+        self.scaler = checkpoint['scaler']
+        self.beta = checkpoint.get('beta', 1.0)
+        self.epochs = checkpoint.get('epochs', 100)
+        self.batch_size = checkpoint.get('batch_size', 64)
+        self.lr = checkpoint.get('lr', 0.001)
+        self.is_fitted = True
+        
+        print(f"📂 VAE模型已加载: {filepath}")
+        return self
 
 
 # =================== 方案2: 手工特征提取器 ===================
@@ -533,6 +580,53 @@ class FeatureBasedAnomalyDetector:
         
         predictions = (reconstruction_errors > self.threshold).astype(int)
         return predictions, reconstruction_errors
+    
+    def save_model(self, filepath):
+        """保存特征自编码器模型"""
+        if not self.is_fitted:
+            raise ValueError("模型未训练，无法保存")
+        
+        # 保存模型状态字典和其他必要信息
+        model_state = {
+            'model_state_dict': self.model.state_dict(),
+            'feature_dim': self.model.encoder[0].in_features,
+            'latent_dim': self.latent_dim,
+            'threshold': self.threshold,
+            'scaler': self.scaler,
+            'epochs': self.epochs,
+            'batch_size': self.batch_size,
+            'lr': self.lr,
+            'feature_extractor': self.feature_extractor
+        }
+        
+        # 使用 pickle 保存，因为包含了特征提取器
+        with open(filepath, 'wb') as f:
+            pickle.dump(model_state, f)
+        
+        print(f"💾 特征自编码器模型已保存: {filepath}")
+    
+    def load_model(self, filepath):
+        """加载特征自编码器模型"""
+        with open(filepath, 'rb') as f:
+            checkpoint = pickle.load(f)
+        
+        # 重建模型
+        feature_dim = checkpoint['feature_dim']
+        self.latent_dim = checkpoint['latent_dim']
+        self.model = FeatureBasedAutoencoder(feature_dim, self.latent_dim).to(self.device)
+        
+        # 加载模型参数
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.threshold = checkpoint['threshold']
+        self.scaler = checkpoint['scaler']
+        self.epochs = checkpoint.get('epochs', 100)
+        self.batch_size = checkpoint.get('batch_size', 32)
+        self.lr = checkpoint.get('lr', 0.001)
+        self.feature_extractor = checkpoint['feature_extractor']
+        self.is_fitted = True
+        
+        print(f"📂 特征自编码器模型已加载: {filepath}")
+        return self
 
 
 # =================== 集成版本 ===================
