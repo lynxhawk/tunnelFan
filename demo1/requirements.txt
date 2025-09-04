@@ -29,6 +29,11 @@ json
 os
 typing
 
+fastapi
+uvicorn
+pydantic
+python-multipart
+
 # 可选：CUDA支持（如果使用GPU）
 # 注意：根据你的CUDA版本选择对应的torch版本
 # 访问 https://pytorch.org/get-started/locally/ 获取正确的安装命令
