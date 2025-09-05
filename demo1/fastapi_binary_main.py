@@ -4,6 +4,7 @@ import numpy as np
 import pickle
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import IsolationForest
 import io
 import logging
 from typing import List, Dict, Any, Optional
@@ -16,9 +17,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="轴承故障诊断API",
-    description="基于统计方法的轴承故障诊断服务",
-    version="1.0.0"
+    title="轴承故障诊断API - 孤立森林版",
+    description="基于孤立森林算法的轴承故障诊断服务",
+    version="2.0.0"
 )
 
 # 数据模型定义
@@ -26,10 +27,12 @@ class DiagnosisResult(BaseModel):
     """诊断结果模型"""
     status: str  # "健康" 或 "故障"
     confidence_score: float  # 置信度分数
-    euclidean_distance: float  # 欧氏距离
-    threshold: float  # 判断阈值
+    anomaly_score: float  # 异常分数
+    prediction_value: int  # 预测值 (0: 正常, 1: 异常)
+    threshold: float  # 判断阈值（如果有的话）
     timestamp: str  # 诊断时间
     data_points: int  # 数据点数
+    model_type: str  # 模型类型
 
 class FileResult(BaseModel):
     """单个文件诊断结果"""
@@ -46,14 +49,15 @@ class BatchDiagnosisResult(BaseModel):
     results: List[FileResult]
     batch_timestamp: str
 
-class StatisticalEuclideanDetector:
-    """欧氏距离异常检测器（简化版）"""
+class IsolationForestDetector:
+    """孤立森林异常检测器"""
     
     def __init__(self):
-        self.scaler = StandardScaler()
-        self.mean = None
-        self.threshold = None
+        self.scaler = None
+        self.model = None
+        self.contamination = None
         self.is_fitted = False
+        self.model_type = "IsolationForest"
         
     def predict_single(self, test_data):
         """预测单个样本"""
@@ -69,13 +73,14 @@ class StatisticalEuclideanDetector:
         # 标准化
         test_scaled = self.scaler.transform(test_data)
         
-        # 计算欧氏距离
-        distances = np.array([np.linalg.norm(x - self.mean) for x in test_scaled])
+        # 预测：-1表示异常，1表示正常
+        predictions_raw = self.model.predict(test_scaled)
+        predictions = (predictions_raw == -1).astype(int)
         
-        # 判断异常
-        predictions = (distances > self.threshold).astype(int)
+        # 异常分数：越负越异常，转换为正值（越大越异常）
+        scores = -self.model.decision_function(test_scaled)
         
-        return predictions, distances
+        return predictions, scores
 
 class BearingFaultDiagnosisAPI:
     """轴承故障诊断API主类"""
@@ -87,23 +92,34 @@ class BearingFaultDiagnosisAPI:
         self.load_model()
     
     def load_model(self):
-        """加载预训练的统计模型"""
+        """加载预训练的孤立森林模型"""
         try:
             if not os.path.exists(self.model_path):
                 raise FileNotFoundError(f"模型文件不存在: {self.model_path}")
             
             with open(self.model_path, 'rb') as f:
-                model_data = pickle.load(f)
+                loaded_detector = pickle.load(f)
             
-            # 重建检测器
-            self.detector = StatisticalEuclideanDetector()
-            self.detector.scaler = model_data['scaler']
-            self.detector.mean = model_data['mean']
-            self.detector.threshold = model_data['threshold']
-            self.detector.is_fitted = model_data['is_fitted']
-            
-            logger.info(f"✅ 模型加载成功: {self.model_path}")
-            logger.info(f"   阈值: {self.detector.threshold:.6f}")
+            # 检查模型类型
+            if hasattr(loaded_detector, 'name') and loaded_detector.name == "IsolationForest":
+                # 直接使用加载的完整检测器
+                self.detector = loaded_detector
+                logger.info(f"✅ 孤立森林检测器加载成功: {self.model_path}")
+                logger.info(f"   模型类型: {self.detector.name}")
+                logger.info(f"   污染率: {self.detector.contamination}")
+                logger.info(f"   树的数量: {self.detector.n_estimators}")
+            else:
+                # 尝试兼容旧格式（如果是字典格式）
+                self.detector = IsolationForestDetector()
+                if isinstance(loaded_detector, dict):
+                    self.detector.scaler = loaded_detector.get('scaler')
+                    self.detector.model = loaded_detector.get('model')
+                    self.detector.contamination = loaded_detector.get('contamination', 0.1)
+                    self.detector.is_fitted = loaded_detector.get('is_fitted', True)
+                else:
+                    raise ValueError("无法识别的模型格式")
+                
+                logger.info(f"✅ 兼容模式加载成功: {self.model_path}")
             
         except Exception as e:
             logger.error(f"❌ 模型加载失败: {e}")
@@ -240,14 +256,16 @@ class BearingFaultDiagnosisAPI:
             logger.info(f"处理后数据形状: {processed_data.shape}")
             
             # 预测
-            predictions, distances = self.detector.predict_single(processed_data)
+            predictions, scores = self.detector.predict_single(processed_data)
             
-            # 计算平均距离作为最终判断依据
-            avg_distance = np.mean(distances)
-            final_prediction = 1 if avg_distance > self.detector.threshold else 0
+            # 计算平均分数作为最终判断依据
+            avg_score = np.mean(scores)
+            avg_prediction = np.mean(predictions)
+            final_prediction = 1 if avg_prediction >= 0.5 else 0
             
-            # 计算置信度（基于距离与阈值的比值）
-            confidence_score = min(abs(avg_distance - self.detector.threshold) / self.detector.threshold, 1.0)
+            # 计算置信度（基于异常分数的标准化）
+            # 对于孤立森林，分数越高越异常
+            confidence_score = min(avg_score / 2.0, 1.0)  # 简单的置信度计算
             
             # 生成结果
             status = "故障" if final_prediction == 1 else "健康"
@@ -255,13 +273,15 @@ class BearingFaultDiagnosisAPI:
             result = DiagnosisResult(
                 status=status,
                 confidence_score=round(confidence_score, 4),
-                euclidean_distance=round(avg_distance, 6),
-                threshold=round(self.detector.threshold, 6),
+                anomaly_score=round(avg_score, 6),
+                prediction_value=final_prediction,
+                threshold=0.5,  # 孤立森林的阈值概念
                 timestamp=datetime.now().isoformat(),
-                data_points=len(raw_data)
+                data_points=len(raw_data),
+                model_type=self.detector.model_type if hasattr(self.detector, 'model_type') else "IsolationForest"
             )
             
-            logger.info(f"诊断结果: {status}, 距离: {avg_distance:.6f}, 阈值: {self.detector.threshold:.6f}")
+            logger.info(f"诊断结果: {status}, 异常分数: {avg_score:.6f}, 预测概率: {avg_prediction:.3f}")
             
             return result
             
@@ -315,7 +335,7 @@ class BearingFaultDiagnosisAPI:
         return batch_result
 
 # 全局API实例（需要配置模型路径）
-MODEL_PATH = "statistical_mahalanobis.pkl"  # 请修改为实际模型路径
+MODEL_PATH = "isolation_forest.pkl"  # 修改为孤立森林模型路径
 api_instance = None
 
 def initialize_api(model_path: str = MODEL_PATH):
@@ -341,8 +361,9 @@ async def startup_event():
 async def root():
     """根路径，返回API信息"""
     return {
-        "message": "轴承故障诊断API",
-        "version": "1.0.0",
+        "message": "轴承故障诊断API - 孤立森林版",
+        "version": "2.0.0",
+        "algorithm": "Isolation Forest",
         "status": "运行中" if api_instance else "未初始化",
         "endpoints": [
             "/diagnose - POST 单文件上传诊断",
@@ -362,6 +383,7 @@ async def health_check():
     return {
         "status": "healthy",
         "model_loaded": api_instance.detector is not None,
+        "model_type": "IsolationForest",
         "timestamp": datetime.now().isoformat()
     }
 
@@ -371,18 +393,28 @@ async def model_info():
     if api_instance is None:
         raise HTTPException(status_code=500, detail="服务未初始化")
     
-    return {
+    detector = api_instance.detector
+    model_info_dict = {
         "model_path": api_instance.model_path,
-        "method": "statistical_euclidean",
+        "algorithm": "Isolation Forest",
         "sequence_length": api_instance.seq_length,
-        "threshold": api_instance.detector.threshold if api_instance.detector else None,
-        "is_fitted": api_instance.detector.is_fitted if api_instance.detector else False
+        "is_fitted": detector.is_fitted if detector else False
     }
+    
+    # 添加孤立森林特有的信息
+    if detector and hasattr(detector, 'contamination'):
+        model_info_dict["contamination"] = detector.contamination
+    if detector and hasattr(detector, 'n_estimators'):
+        model_info_dict["n_estimators"] = detector.n_estimators
+    if detector and hasattr(detector, 'name'):
+        model_info_dict["detector_name"] = detector.name
+    
+    return model_info_dict
 
 @app.post("/diagnose", response_model=DiagnosisResult)
 async def diagnose_bearing(file: UploadFile = File(...)):
     """
-    轴承故障诊断接口
+    轴承故障诊断接口 - 孤立森林版
     
     上传TXT/CSV格式的单轴轴承振动数据，返回健康/故障判断结果
     """
@@ -419,7 +451,7 @@ async def diagnose_bearing(file: UploadFile = File(...)):
 @app.post("/diagnose-batch", response_model=BatchDiagnosisResult)
 async def diagnose_batch(files: List[UploadFile] = File(...)):
     """
-    批量轴承故障诊断接口
+    批量轴承故障诊断接口 - 孤立森林版
     
     上传多个TXT/CSV格式的轴承振动数据文件，返回每个文件的诊断结果
     """
@@ -490,7 +522,7 @@ async def diagnose_batch(files: List[UploadFile] = File(...)):
 @app.post("/diagnose-raw")
 async def diagnose_raw_data(data: List[float]):
     """
-    直接接收数组数据进行诊断
+    直接接收数组数据进行诊断 - 孤立森林版
     
     用于测试或直接传入数值数组
     """
@@ -530,8 +562,9 @@ async def reload_model(model_path: str = None):
             initialize_api()
         
         return {
-            "message": "模型重新加载成功",
+            "message": "孤立森林模型重新加载成功",
             "model_path": api_instance.model_path if api_instance else None,
+            "algorithm": "Isolation Forest",
             "timestamp": datetime.now().isoformat()
         }
         
@@ -548,13 +581,15 @@ if __name__ == "__main__":
     # 启动前初始化
     try:
         initialize_api(model_path)
+        print(f"🚀 孤立森林模型服务准备就绪")
+        print(f"📁 模型路径: {model_path}")
     except Exception as e:
         print(f"❌ 初始化失败: {e}")
-        print("⚠️  请确认模型路径正确")
+        print("⚠️  请确认孤立森林模型路径正确")
     
     # 启动服务
     uvicorn.run(
-        "main:app",  # 如果文件名是main.py
+        "fastapi_binary_main:app",  # 根据实际文件名修改
         host="0.0.0.0",
         port=8000,
         reload=True,
